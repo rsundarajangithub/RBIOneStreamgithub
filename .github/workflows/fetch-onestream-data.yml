@@ -1,0 +1,66 @@
+name: Fetch OneStream Data
+
+on:
+  schedule:
+    - cron: '0 */2 * * *'  # Every 2 hours
+  workflow_dispatch:        # Manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Fetch OneStream data
+        env:
+          OS_BASE_URL: https://rbi-test.onestreamcloud.com
+          OS_ENDPOINT: https://rbi-test.onestreamcloud.com/onestreamapi/api/DataProvider/GetAdoDataSetForAdapter
+          OS_API_VERSION: '5.2.0'
+          OS_PAT: ${{ secrets.ONESTREAM_PAT }}
+          OS_APP_NAME: OneStream_Prod_0128
+          OS_ADAPTER: SQLAdapter
+        run: |
+          mkdir -p data
+
+          declare -a SEGMENTS=("bk-usc" "plk-usc" "fhs-usc" "th-usc" "intl")
+
+          for seg in "${SEGMENTS[@]}"; do
+            SQL="SELECT entity, scenario, time_member AS time, 'Periodic' AS [view], os_account AS account, flow, intercomp AS ic, ud1, ud2, ud3, ud4, ud5, ud6, ud7, ud8, amount AS value, extracted_at
+                 FROM brucetest
+                 WHERE segment = '${seg}'"
+
+            BODY=$(jq -n \
+              --arg app "$OS_APP_NAME" \
+              --arg adapter "$OS_ADAPTER" \
+              --arg sql "$SQL" \
+              --arg baseUrl "$OS_BASE_URL" \
+              '{BaseWebServerUrl: $baseUrl, ApplicationName: $app, AdapterName: $adapter, ParameterValues: ("<SqlQuery>" + $sql + "</SqlQuery>")}')
+
+            echo "Fetching ${seg} from brucetest..."
+            HTTP_CODE=$(curl -s -o "data/${seg}.json" -w "%{http_code}" \
+              -X POST "${OS_ENDPOINT}?api-version=${OS_API_VERSION}" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${OS_PAT}" \
+              -d "$BODY")
+
+            if [ "$HTTP_CODE" -ne 200 ]; then
+              echo "WARNING: ${seg} returned HTTP ${HTTP_CODE}"
+              echo "Response: $(cat data/${seg}.json | head -c 500)"
+              echo '{"Tables":[{"Columns":[],"Rows":[]}]}' > "data/${seg}.json"
+            else
+              echo "OK: ${seg} fetched successfully"
+            fi
+          done
+
+          echo "{\"fetchedAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\", \"sourceTable\": \"brucetest\"}" > data/meta.json
+          echo "All segments fetched."
+
+      - name: Commit and push data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          git diff --staged --quiet || (git commit -m "Update OneStream data $(date -u +%Y-%m-%dT%H:%M:%SZ)" && git push)
