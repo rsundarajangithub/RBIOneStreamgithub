@@ -1188,12 +1188,17 @@ const els = {
   },
 };
 
-bootstrap();
-
 // Absolute URL so the fetch works whether this HTML is opened directly
 // from GitHub Pages, embedded in OneStream BL_DASH, or saved locally.
 // CORS is enabled by default on github.io for static files.
+//
+// IMPORTANT: this const must be declared BEFORE bootstrap() is invoked.
+// `const` is not hoisted like `function`, so calling bootstrap() above
+// this line would hit a temporal dead zone and silently abort the
+// async chain (which is exactly what bit us the first time).
 const DASHBOARD_DATA_URL = "https://rsundarajangithub.github.io/RBIOneStreamgithub/data/dashboard.json";
+
+bootstrap();
 
 async function bootstrap() {
   showStatus("Loading dashboard...");
