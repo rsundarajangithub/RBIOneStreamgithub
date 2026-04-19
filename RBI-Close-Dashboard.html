@@ -1,0 +1,2165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RBI Closing Results Dashboard</title>
+  <style>
+:root {
+  --bg: #f4f0f4;
+  --panel: rgba(255, 255, 255, 0.92);
+  --panel-strong: #ffffff;
+  --ink: #241a24;
+  --muted: #6d5d6b;
+  --line: rgba(36, 26, 36, 0.1);
+  --plum: #8a1b61;
+  --plum-soft: rgba(138, 27, 97, 0.12);
+  --blue: #0070c0;
+  --blue-soft: rgba(0, 112, 192, 0.12);
+  --good: #0b7b45;
+  --good-soft: rgba(11, 123, 69, 0.1);
+  --bad: #c00000;
+  --bad-soft: rgba(192, 0, 0, 0.08);
+  --neutral-soft: rgba(109, 93, 107, 0.12);
+  --shadow: 0 18px 38px rgba(58, 36, 57, 0.12);
+  --radius: 24px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", "Aptos", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, rgba(138, 27, 97, 0.14), transparent 32%),
+    radial-gradient(circle at top right, rgba(0, 112, 192, 0.14), transparent 34%),
+    linear-gradient(180deg, #fbf9fc 0%, #f0ebf1 100%);
+}
+
+button,
+textarea {
+  font: inherit;
+}
+
+.shell {
+  max-width: 1840px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.hero,
+.toolbar,
+.panel {
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 22px;
+  align-items: flex-start;
+  padding: 28px;
+  border-radius: 32px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(248, 242, 247, 0.96));
+  border: 1px solid rgba(138, 27, 97, 0.08);
+  box-shadow: var(--shadow);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 12px;
+  color: var(--plum);
+  font-weight: 800;
+}
+
+.hero h1,
+.summary-title {
+  margin: 0;
+  letter-spacing: -0.03em;
+}
+
+.hero h1 {
+  max-width: 820px;
+  font-size: clamp(30px, 4vw, 48px);
+  line-height: 1.04;
+}
+
+.hero-copy,
+.summary-copy,
+.subtle,
+.mini-meta,
+.bar-value {
+  color: var(--muted);
+}
+
+.hero-copy,
+.summary-copy {
+  margin: 12px 0 0;
+  max-width: 760px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.hero-note {
+  margin: 10px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--plum);
+}
+
+.hero-actions,
+.pill-row,
+.toolbar-right,
+.toggle-group,
+.hero-badges,
+.variance-chip-row,
+.scenario-strip,
+.comparison-toggle {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.primary-button,
+.ghost-button,
+.segment-pill,
+.period-button,
+.view-button {
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease, color 140ms ease;
+}
+
+.primary-button:hover,
+.ghost-button:hover,
+.segment-pill:hover,
+.period-button:hover,
+.view-button:hover {
+  transform: translateY(-1px);
+}
+
+.primary-button {
+  background: linear-gradient(135deg, var(--plum), var(--blue));
+  color: white;
+  box-shadow: 0 12px 22px rgba(138, 27, 97, 0.22);
+}
+
+.ghost-button,
+.segment-pill,
+.period-button,
+.view-button {
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--muted);
+  border: 1px solid rgba(36, 26, 36, 0.08);
+}
+
+.segment-pill.is-active,
+.period-button.is-active,
+.view-button.is-active {
+  background: var(--ink);
+  color: white;
+  box-shadow: 0 10px 18px rgba(36, 26, 36, 0.14);
+}
+
+.toolbar {
+  margin-top: 18px;
+  padding: 18px 20px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(138, 27, 97, 0.06);
+  box-shadow: var(--shadow);
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.context-grid,
+.section-grid,
+.commentary-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.context-grid {
+  grid-template-columns: 1.5fr 1fr;
+  margin-top: 18px;
+}
+
+.context-grid-wide {
+  grid-template-columns: 1fr;
+}
+
+.section-grid,
+.commentary-grid {
+  grid-template-columns: 1fr 1fr;
+  margin-top: 18px;
+}
+
+.pnl-bridge-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid rgba(138, 27, 97, 0.08);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 22px;
+}
+
+.panel-feature {
+  background:
+    radial-gradient(circle at top right, rgba(0, 112, 192, 0.12), transparent 28%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.96), rgba(248, 242, 247, 0.94));
+}
+
+.panel-spacious {
+  margin-top: 18px;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.panel-header h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.summary-title {
+  font-size: clamp(28px, 3vw, 42px);
+}
+
+.summary-topline {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.chip,
+.mini-chip,
+.scenario-chip,
+.indicator {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.chip {
+  padding: 6px 10px;
+  background: var(--plum-soft);
+  color: var(--plum);
+  font-size: 12px;
+}
+
+.public-badge {
+  padding: 8px 14px;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+.segment-summary-grid,
+.card-grid,
+.narrative-stack,
+.chart-list {
+  display: grid;
+  gap: 14px;
+}
+
+.segment-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 18px;
+}
+
+.summary-primary-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.stat-card,
+.summary-card,
+.narrative-block,
+.draft-copy,
+.empty-state,
+.variance-detail-card {
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 16px;
+}
+
+.stat-card h3,
+.summary-card h3,
+.variance-detail-card h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.big-number {
+  margin: 0;
+  font-size: clamp(24px, 3vw, 34px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.mini-chip,
+.scenario-chip {
+  padding: 7px 10px;
+  font-size: 11px;
+  line-height: 1.25;
+  white-space: normal;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+.mini-chip.good,
+.indicator.good {
+  color: var(--good);
+  background: var(--good-soft);
+}
+
+.mini-chip.bad,
+.indicator.bad {
+  color: var(--bad);
+  background: var(--bad-soft);
+}
+
+.mini-chip.neutral,
+.indicator.neutral {
+  color: var(--muted);
+  background: var(--neutral-soft);
+}
+
+.scenario-chip {
+  color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.indicator {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.chart-area {
+  min-height: 340px;
+}
+
+.summary-card-primary {
+  min-height: 164px;
+}
+
+.detail-section-stack {
+  display: grid;
+  gap: 18px;
+}
+
+.kpi-layout {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.detail-section {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.74);
+  overflow: hidden;
+}
+
+.detail-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.detail-card-grid-intl {
+  display: grid;
+  grid-template-columns: minmax(210px, 250px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  min-width: 0;
+}
+
+.detail-card-grid-intl-main {
+  min-width: 0;
+}
+
+.detail-card-grid-intl-sub {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.detail-line-card {
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 14px 14px 16px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.detail-line-card h3,
+.detail-line-top h3 {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.detail-actual {
+  margin: 6px 0 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.detail-line-top {
+  min-height: 54px;
+}
+
+.detail-line-card:not(.is-main-card) .detail-actual {
+  font-size: 18px;
+}
+
+.detail-line-card .variance-chip-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.detail-line-card .mini-chip {
+  width: 100%;
+  justify-content: flex-start;
+  align-items: flex-start;
+  padding: 8px 10px;
+  font-size: 11px;
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.detail-card-grid-intl-main .detail-line-card .mini-chip {
+  width: auto;
+  max-width: 100%;
+}
+
+.detail-bar-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+  margin: 14px 0 12px;
+}
+
+.chart-row {
+  display: grid;
+  grid-template-columns: 180px 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.chart-label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.bar-track {
+  position: relative;
+  height: 18px;
+  background: rgba(36, 26, 36, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.bar-track.full {
+  min-width: 0;
+}
+
+.bar-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+}
+
+.bar-fill.good {
+  background: linear-gradient(90deg, rgba(11, 123, 69, 0.84), rgba(11, 123, 69, 1));
+}
+
+.bar-fill.bad {
+  background: linear-gradient(90deg, rgba(192, 0, 0, 0.84), rgba(192, 0, 0, 1));
+}
+
+.bar-fill.neutral {
+  background: linear-gradient(90deg, rgba(109, 93, 107, 0.7), rgba(109, 93, 107, 0.9));
+}
+
+.matrix-wrap,
+.table-wrap {
+  overflow: auto;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.84);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 860px;
+  font-variant-numeric: tabular-nums;
+}
+
+th,
+td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  text-align: left;
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: rgba(249, 244, 248, 0.98);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--plum);
+  font-weight: 800;
+}
+
+tbody tr:hover {
+  background: rgba(138, 27, 97, 0.04);
+}
+
+.pnl-detail-row:nth-child(odd) {
+  background: rgba(36, 26, 36, 0.04);
+}
+
+.pnl-summary-row {
+  font-weight: 800;
+  background: rgba(36, 26, 36, 0.08);
+}
+
+.pnl-total-row {
+  font-weight: 900;
+  background: rgba(36, 26, 36, 0.12);
+  border-top: 2px solid rgba(36, 26, 36, 0.4);
+}
+
+.line-label {
+  white-space: nowrap;
+}
+
+#flowthrough-view table,
+#pnl-view table {
+  table-layout: fixed;
+  font-size: 16px;
+  min-width: 1850px;
+}
+
+#flowthrough-view td,
+#pnl-view td {
+  line-height: 1.25;
+}
+
+#flowthrough-view .commentary-cell,
+#pnl-view .commentary-cell {
+  min-width: 260px;
+}
+
+#pnl-view th:nth-child(1),
+#pnl-view td:nth-child(1) {
+  width: 220px;
+}
+
+#pnl-view th:nth-child(2),
+#pnl-view td:nth-child(2),
+#pnl-view th:nth-child(3),
+#pnl-view td:nth-child(3),
+#pnl-view th:nth-child(4),
+#pnl-view td:nth-child(4),
+#pnl-view th:nth-child(5),
+#pnl-view td:nth-child(5) {
+  width: 82px;
+}
+
+#pnl-view th:nth-child(6),
+#pnl-view td:nth-child(6),
+#pnl-view th:nth-child(8),
+#pnl-view td:nth-child(8),
+#pnl-view th:nth-child(10),
+#pnl-view td:nth-child(10) {
+  width: 96px;
+}
+
+#pnl-view th:nth-child(7),
+#pnl-view td:nth-child(7),
+#pnl-view th:nth-child(9),
+#pnl-view td:nth-child(9),
+#pnl-view th:nth-child(11),
+#pnl-view td:nth-child(11) {
+  width: 340px;
+}
+
+td.good,
+td.bad,
+td.neutral {
+  font-weight: 700;
+}
+
+.view-section {
+  display: none;
+}
+
+.view-section.is-active {
+  display: block;
+}
+
+.commentary-input {
+  width: 100%;
+  min-height: 74px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: white;
+  padding: 10px 12px;
+}
+
+.flow-commentary-input {
+  min-height: 58px;
+}
+
+.commentary-cell {
+  min-width: 240px;
+  width: 260px;
+  max-width: 260px;
+}
+
+.pnl-commentary-input {
+  min-height: 52px;
+}
+
+.is-hidden {
+  display: none;
+}
+
+.table-toggle-row {
+  margin: 0 0 14px;
+}
+
+.toggle-button.is-active {
+  background: var(--ink);
+  color: white;
+  box-shadow: 0 10px 18px rgba(36, 26, 36, 0.14);
+}
+
+#commentary-lock.is-active {
+  background: var(--ink);
+  color: white;
+}
+
+.detail-list {
+  align-content: start;
+}
+
+.variance-detail-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.comparison-toggle {
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.compact .mini-chip {
+  font-size: 11px;
+  padding: 5px 8px;
+}
+
+.bridge-card {
+  display: grid;
+  gap: 14px;
+}
+
+.bridge-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  background: rgba(36, 26, 36, 0.04);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+}
+
+.bridge-summary-three {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.bridge-summary-four {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.bridge-label {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.bridge-number {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.bridge-list {
+  display: grid;
+  gap: 10px;
+}
+
+.bridge-row {
+  display: grid;
+  grid-template-columns: 180px 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.bridge-total-row {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+  font-weight: 900;
+}
+
+.bridge-line {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.bridge-value {
+  font-weight: 800;
+}
+
+.variance-bubble {
+  font-weight: 800;
+}
+
+.commentary-bubble {
+  min-height: 52px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: white;
+  white-space: normal;
+  line-height: 1.45;
+  font-size: 15px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+.commentary-bubble.is-locked {
+  background: rgba(36, 26, 36, 0.04);
+}
+
+.commentary-bubble p {
+  margin: 0;
+}
+
+.commentary-bubble p + p,
+.commentary-bubble p + ul,
+.commentary-bubble ul + p,
+.commentary-bubble ul + ul {
+  margin-top: 8px;
+}
+
+.commentary-heading {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.commentary-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.commentary-list .commentary-list {
+  margin-top: 6px;
+  padding-left: 18px;
+}
+
+.commentary-list li + li {
+  margin-top: 6px;
+}
+
+.commentary-bubble strong {
+  font-weight: 800;
+}
+
+.detail-line-card.is-main-card {
+  background: linear-gradient(180deg, rgba(138, 27, 97, 0.12), rgba(255, 255, 255, 0.98));
+  border-color: rgba(138, 27, 97, 0.22);
+}
+
+#flowthrough-view table thead th {
+  background: #8a1b61;
+  color: white;
+}
+
+#flowthrough-view .pnl-detail-row:nth-child(odd) {
+  background: rgba(36, 26, 36, 0.04);
+}
+
+#flowthrough-view td:nth-child(2),
+#flowthrough-view td:nth-child(4) {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+#flowthrough-view .variance-bubble {
+  padding: 9px 14px;
+  font-size: 13px;
+}
+
+#flowthrough-view .indicator {
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+#pnl-view .variance-bubble {
+  padding: 9px 14px;
+  font-size: 13px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 74px;
+}
+
+#flowthrough-view td:nth-child(2):empty,
+#flowthrough-view td:nth-child(4):empty {
+  background: transparent;
+}
+
+#flowthrough-view .table-wrap {
+  background: linear-gradient(180deg, rgba(255,255,255,0.94), rgba(247,243,247,0.98));
+}
+
+#pnl-view td {
+  font-size: 17px;
+  vertical-align: middle;
+}
+
+#pnl-view td:nth-child(1),
+#pnl-view td:nth-child(2),
+#pnl-view td:nth-child(3),
+#pnl-view td:nth-child(4),
+#pnl-view td:nth-child(5),
+#pnl-view td:nth-child(7),
+#pnl-view td:nth-child(9),
+#pnl-view td:nth-child(11) {
+  font-weight: 400 !important;
+}
+
+#pnl-view .line-label {
+  font-size: 18px;
+  font-weight: 400;
+}
+
+#pnl-view .commentary-cell {
+  min-width: 340px;
+  width: 340px;
+  max-width: 340px;
+}
+
+#pnl-view .pnl-commentary-input,
+#pnl-view .commentary-bubble {
+  width: 100%;
+  min-width: 0;
+}
+
+#pnl-view .commentary-bubble,
+#pnl-view .commentary-bubble p,
+#pnl-view .commentary-bubble li,
+#pnl-view .commentary-bubble .commentary-heading,
+#pnl-view .commentary-bubble strong,
+#pnl-view .pnl-commentary-input {
+  font-weight: 400;
+}
+
+@media (max-width: 1120px) {
+  .context-grid,
+  .section-grid,
+  .commentary-grid,
+  .pnl-bridge-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .segment-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .summary-primary-grid,
+  .kpi-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .shell {
+    padding: 16px;
+  }
+
+  .hero,
+  .toolbar {
+    padding: 18px;
+  }
+
+  .segment-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-card-grid-intl {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-card-grid-intl-sub {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bridge-row {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-row,
+  .summary-topline {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+}
+
+</style>
+</head>
+<body>
+  <div class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">RBI Close Dashboard</p>
+        <h1>MARCH 2026 CLOSE DASHBOARD</h1>
+        <p class="hero-copy">
+          Built directly from the workbook <code>Output</code> tabs, including hidden quarter and YTD columns.
+        </p>
+        <p class="hero-note">Note: KPI variances are nominal, AOI variances are Organic. AOI Growth at the RBI Level excludes Restaurant Holdings.</p>
+      </div>
+      <div class="hero-actions">
+        <button id="export-all-segments" class="primary-button" type="button">Export Full Dashboard + 6 Segments</button>
+        <button id="commentary-lock" class="ghost-button" type="button">Commentary Locked</button>
+        <button id="prev-segment" class="ghost-button" type="button">Previous</button>
+        <button id="next-segment" class="ghost-button" type="button">Next</button>
+      </div>
+    </header>
+
+    <section class="toolbar">
+      <div id="segment-tabs" class="pill-row" aria-label="Segments"></div>
+      <div class="toolbar-right">
+        <div class="toggle-group" id="period-tabs" aria-label="Periods">
+          <button type="button" data-period="month" class="period-button is-active">Month</button>
+          <button type="button" data-period="quarter" class="period-button">Quarter</button>
+          <button type="button" data-period="ytd" class="period-button">YTD</button>
+        </div>
+        <div class="toggle-group" id="view-tabs" aria-label="Views">
+          <button type="button" data-view="overview" class="view-button is-active">Overview</button>
+          <button type="button" data-view="flowthrough" class="view-button">Flowthrough</button>
+          <button type="button" data-view="pnl" class="view-button">P&amp;L</button>
+        </div>
+      </div>
+    </section>
+
+    <main>
+      <section class="context-grid context-grid-wide">
+        <article class="panel panel-feature" id="segment-summary"></article>
+      </section>
+
+      <section id="overview-view" class="view-section is-active">
+        <article class="panel panel-spacious">
+          <div class="panel-header">
+            <h2>KPI comparison</h2>
+            <span id="kpi-unit-chip" class="chip"></span>
+          </div>
+          <div id="kpi-chart" class="chart-area"></div>
+        </article>
+      </section>
+
+      <section id="flowthrough-view" class="view-section">
+        <div class="section-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <h2>Flowthrough headline metrics</h2>
+              <span class="chip">SSS, units, SWSG</span>
+            </div>
+            <div id="flow-headlines" class="card-grid"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-header">
+              <h2>Driver ladder</h2>
+              <span class="chip">Ranked by flowthrough</span>
+            </div>
+            <div id="flow-driver-chart" class="chart-area"></div>
+          </article>
+        </div>
+        <article class="panel panel-spacious">
+          <div class="panel-header">
+            <h2>Driver table</h2>
+            <span class="chip">Excel order</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Driver</th>
+                  <th>YoY</th>
+                  <th>Flowthrough</th>
+                  <th>Signal</th>
+                  <th>Commentary</th>
+                </tr>
+              </thead>
+              <tbody id="flow-driver-table"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section id="pnl-view" class="view-section">
+        <div class="pnl-bridge-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <h2>Actual vs LE Bridge</h2>
+              <span id="pnl-unit-chip" class="chip"></span>
+            </div>
+            <div id="bridge-le" class="chart-area"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-header">
+              <h2>Actual vs Budget Bridge</h2>
+              <span id="pnl-unit-chip-budget" class="chip">Scale</span>
+            </div>
+            <div id="bridge-budget" class="chart-area"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-header">
+              <h2>Actual vs PY Bridge</h2>
+              <span id="pnl-unit-chip-py" class="chip">Scale</span>
+            </div>
+            <div id="bridge-py" class="chart-area"></div>
+          </article>
+        </div>
+        <article class="panel panel-spacious">
+          <div class="panel-header">
+            <h2>P&amp;L output table</h2>
+            <span class="chip">Actual, LE, Budget, PY, and variances</span>
+          </div>
+          <div class="toggle-group table-toggle-row" id="pnl-commentary-toggles" aria-label="P&L Commentary Toggles">
+            <button type="button" class="ghost-button toggle-button is-active" data-toggle-commentary="le">vs LE Commentary</button>
+            <button type="button" class="ghost-button toggle-button is-active" data-toggle-commentary="budget">vs Budget Commentary</button>
+            <button type="button" class="ghost-button toggle-button is-active" data-toggle-commentary="py">vs PY Commentary</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Line</th>
+                  <th>Actual</th>
+                  <th>LE</th>
+                  <th>Budget</th>
+                  <th>PY</th>
+                  <th>vs LE</th>
+                  <th data-commentary-column="le">vs LE Commentary</th>
+                  <th>vs Budget</th>
+                  <th data-commentary-column="budget">vs Budget Commentary</th>
+                  <th>vs PY</th>
+                  <th data-commentary-column="py">vs PY Commentary</th>
+                </tr>
+              </thead>
+              <tbody id="pnl-table"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+// Live data is fetched in bootstrap() from ./data/dashboard.json.
+window.DASHBOARD_DATA = null;
+</script>
+  <script>
+const FLOW_COMMENTARY_STORAGE_KEY = "rbi-close-flow-commentary-v1";
+const PNL_COMMENTARY_STORAGE_KEY = "rbi-close-pnl-commentary-v1";
+const COMMENTARY_LOCK_STORAGE_KEY = "rbi-close-commentary-lock-v1";
+const COMMENTARY_PASSWORD = "commentlock";
+const EMBEDDED_STATE = window.RBI_EMBEDDED_STATE || {};
+
+const state = {
+  data: null,
+  selectedSegmentId: EMBEDDED_STATE.selectedSegmentId || null,
+  selectedPeriod: EMBEDDED_STATE.selectedPeriod || "month",
+  selectedView: EMBEDDED_STATE.selectedView || "overview",
+  flowCommentary: mergeStored(EMBEDDED_STATE.flowCommentary, loadStored(FLOW_COMMENTARY_STORAGE_KEY)),
+  pnlCommentary: mergeStored(EMBEDDED_STATE.pnlCommentary, loadStored(PNL_COMMENTARY_STORAGE_KEY)),
+  commentaryVisibility: { le: true, budget: true, py: true, ...(EMBEDDED_STATE.commentaryVisibility || {}) },
+  commentaryLocked: loadLockState(),
+};
+
+const els = {
+  segmentTabs: document.getElementById("segment-tabs"),
+  periodTabs: document.getElementById("period-tabs"),
+  viewTabs: document.getElementById("view-tabs"),
+  summary: document.getElementById("segment-summary"),
+  kpiChart: document.getElementById("kpi-chart"),
+  flowHeadlines: document.getElementById("flow-headlines"),
+  flowDriverChart: document.getElementById("flow-driver-chart"),
+  flowDriverTable: document.getElementById("flow-driver-table"),
+  bridgeLe: document.getElementById("bridge-le"),
+  bridgeBudget: document.getElementById("bridge-budget"),
+  bridgePy: document.getElementById("bridge-py"),
+  pnlTable: document.getElementById("pnl-table"),
+  prevSegment: document.getElementById("prev-segment"),
+  nextSegment: document.getElementById("next-segment"),
+  exportAllSegments: document.getElementById("export-all-segments"),
+  commentaryLock: document.getElementById("commentary-lock"),
+  kpiUnitChip: document.getElementById("kpi-unit-chip"),
+  pnlUnitChip: document.getElementById("pnl-unit-chip"),
+  pnlUnitChipBudget: document.getElementById("pnl-unit-chip-budget"),
+  pnlUnitChipPy: document.getElementById("pnl-unit-chip-py"),
+  pnlCommentaryToggles: document.getElementById("pnl-commentary-toggles"),
+  views: {
+    overview: document.getElementById("overview-view"),
+    flowthrough: document.getElementById("flowthrough-view"),
+    pnl: document.getElementById("pnl-view"),
+  },
+};
+
+bootstrap();
+
+async function bootstrap() {
+  showStatus("Loading dashboard...");
+  try {
+    const url = "./data/dashboard.json?ts=" + Date.now();
+    const resp = await fetch(url, { cache: "no-store" });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    window.DASHBOARD_DATA = await resp.json();
+  } catch (err) {
+    showStatus(`Unable to load data/dashboard.json (${err.message}).`);
+    return;
+  }
+  const data = window.DASHBOARD_DATA;
+  if (!data?.segments?.length) {
+    showStatus("dashboard.json is empty or missing segments.");
+    return;
+  }
+  state.data = data;
+  state.selectedSegmentId = state.selectedSegmentId || data.segments[0].id;
+  wireEvents();
+  render();
+}
+
+function showStatus(message) {
+  document.body.innerHTML = `<div class="shell"><div class="panel" style="margin:48px;padding:32px;text-align:center;"><h1 style="font-size:18px;margin:0 0 12px;">RBI Close Dashboard</h1><p style="font-size:14px;color:#3b3f5c;">${message}</p></div></div>`;
+}
+
+function wireEvents() {
+  els.periodTabs.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-period]");
+    if (!button) return;
+    state.selectedPeriod = button.dataset.period;
+    render();
+  });
+
+  els.viewTabs.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-view]");
+    if (!button) return;
+    state.selectedView = button.dataset.view;
+    render();
+  });
+
+  els.segmentTabs.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-segment-id]");
+    if (!button) return;
+    state.selectedSegmentId = button.dataset.segmentId;
+    render();
+  });
+
+  document.addEventListener("input", (event) => {
+    const flowInput = event.target.closest("[data-flow-commentary-key]");
+    if (flowInput) {
+      state.flowCommentary[flowInput.dataset.flowCommentaryKey] = flowInput.value;
+      saveStored(FLOW_COMMENTARY_STORAGE_KEY, state.flowCommentary);
+      return;
+    }
+
+    const pnlInput = event.target.closest("[data-pnl-commentary-key]");
+    if (pnlInput) {
+      state.pnlCommentary[pnlInput.dataset.pnlCommentaryKey] = pnlInput.value;
+      saveStored(PNL_COMMENTARY_STORAGE_KEY, state.pnlCommentary);
+    }
+  });
+
+  els.pnlCommentaryToggles?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-toggle-commentary]");
+    if (!button) return;
+    const key = button.dataset.toggleCommentary;
+    state.commentaryVisibility[key] = !state.commentaryVisibility[key];
+    renderPnl(getSelectedSegment());
+    renderCommentaryToggleState();
+  });
+
+  els.commentaryLock?.addEventListener("click", toggleCommentaryLock);
+  els.exportAllSegments?.addEventListener("click", exportAllSegmentHtmls);
+  els.prevSegment?.addEventListener("click", () => stepSegment(-1));
+  els.nextSegment?.addEventListener("click", () => stepSegment(1));
+}
+
+function render() {
+  const segment = getSelectedSegment();
+  if (!segment) return;
+
+  renderSegmentTabs();
+  renderPeriodTabs();
+  renderViewTabs();
+  renderActiveView();
+  renderSegmentSummary(segment);
+  renderOverview(segment);
+  renderFlowthrough(segment);
+  renderPnl(segment);
+  renderCommentaryToggleState();
+  renderCommentaryLockState();
+}
+
+function renderSegmentTabs() {
+  els.segmentTabs.innerHTML = state.data.segments.map((segment) => `
+    <button type="button" class="segment-pill ${segment.id === state.selectedSegmentId ? "is-active" : ""}" data-segment-id="${segment.id}">
+      ${escapeHtml(segment.name)}
+    </button>
+  `).join("");
+}
+
+function renderPeriodTabs() {
+  els.periodTabs.querySelectorAll("[data-period]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.period === state.selectedPeriod);
+  });
+}
+
+function renderViewTabs() {
+  els.viewTabs.querySelectorAll("[data-view]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.view === state.selectedView);
+  });
+}
+
+function renderActiveView() {
+  Object.entries(els.views).forEach(([view, panel]) => {
+    panel.classList.toggle("is-active", view === state.selectedView);
+  });
+}
+
+function renderSegmentSummary(segment) {
+  const period = state.selectedPeriod;
+  const periodDisplay = getPeriodDisplay(segment, period);
+  const scaleLabel = getScaleLabel(segment);
+  const metrics = ["SSS", "Unit %", "NRG", "SWSG", "Segment AOI", "AOIG"];
+
+  els.summary.innerHTML = `
+    <div class="summary-topline">
+      <div>
+        <h2 class="summary-title">${escapeHtml(segment.name)}</h2>
+        <p class="summary-copy">${escapeHtml(periodDisplay.longLabel)} close view from the workbook Output tabs. ${escapeHtml(scaleLabel)}.</p>
+      </div>
+      <div class="hero-badges">
+        <span class="chip">${escapeHtml(periodDisplay.badge)}</span>
+        <span class="chip">${escapeHtml(scaleLabel)}</span>
+      </div>
+    </div>
+    <div class="segment-summary-grid summary-primary-grid">
+      ${metrics.map((metric) => {
+        const item = findKpiMetric(segment, metric);
+        const type = inferMetricType(metric);
+        return buildPrimaryStat(metric, formatMetricValue(item?.[period]?.actual, type, metric), renderVarianceSet(item?.[period], type, metric));
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderOverview(segment) {
+  const period = state.selectedPeriod;
+  els.kpiUnitChip.textContent = `${getPeriodDisplay(segment, period).badge} | ${getScaleLabel(segment)}`;
+  els.kpiChart.innerHTML = buildKpiDetailSections(segment, period);
+}
+
+function renderFlowthrough(segment) {
+  const period = state.selectedPeriod;
+  const visibleDrivers = getVisibleFlowDrivers(segment, period);
+  const ladderDrivers = visibleDrivers.filter((item) => !["fz sales", "total flowthrough", "aoi growth", "royalty rate %"].includes(item.line.toLowerCase()));
+  const totalFlowthrough = findFlowDriver(visibleDrivers, "Total Flowthrough")?.[period]?.flowthrough;
+  const headlineOrder = [
+    { label: "SSS", value: findKpiMetric(segment, "SSS")?.[period]?.actual, type: "percentage" },
+    { label: "Unit %", value: findKpiMetric(segment, "Unit %")?.[period]?.actual, type: "percentage" },
+    { label: "SWSG", value: findKpiMetric(segment, "SWSG")?.[period]?.actual, type: "percentage" },
+    { label: "Total Flowthrough", value: totalFlowthrough, type: "percentage" },
+    { label: "AOIG", value: aoigValueWithDerivedVariance(findKpiMetric(segment, "AOIG")?.[period]).actual, type: "percentage" },
+  ];
+
+  els.flowHeadlines.innerHTML = headlineOrder.map((metric) => `
+    <article class="summary-card">
+      <h3>${escapeHtml(metric.label)}</h3>
+      <p class="big-number">${formatMetricValue(metric.value, metric.type, metric.label)}</p>
+      <p class="mini-meta">${escapeHtml(getPeriodDisplay(segment, period).shortLabel)}</p>
+    </article>
+  `).join("");
+
+  const rankedDrivers = ladderDrivers
+    .filter((item) => item?.[period]?.flowthrough !== null && item?.[period]?.flowthrough !== undefined)
+    .sort((a, b) => Math.abs((b[period].flowthrough ?? 0)) - Math.abs((a[period].flowthrough ?? 0)));
+
+  renderVarianceBarChart({
+    element: els.flowDriverChart,
+    items: rankedDrivers.slice(0, 12).map((item) => ({ label: item.line, value: item[period].flowthrough, type: "percentage" })),
+    valueMode: "percentage",
+  });
+
+  els.flowDriverTable.innerHTML = visibleDrivers.map((item) => {
+    const key = flowCommentaryKey(segment.id, period, item.line);
+    const text = state.flowCommentary[key] || "";
+    return `
+      <tr class="${flowRowClass(item.line)}">
+        <td>${escapeHtml(item.line)}</td>
+        <td class="${varianceClass(item?.[period]?.yoy)}">${formatYoY(item?.[period]?.yoy, item?.[period]?.yoyText, item.line)}</td>
+        <td>${renderVarianceBubble(formatMetricValue(item?.[period]?.flowthrough, "percentage", item.line), varianceClass(item?.[period]?.flowthrough))}</td>
+        <td><span class="indicator ${varianceClass(item?.[period]?.flowthrough)}">${flowDirection(item?.[period]?.flowthrough)}</span></td>
+        <td class="commentary-cell">${renderCommentaryField("flow", key, text, "Add driver commentary")}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function renderPnl(segment) {
+  const period = state.selectedPeriod;
+  const visibleLines = getVisiblePnlLines(segment);
+  const scale = `${getPeriodDisplay(segment, period).badge} | ${getScaleLabel(segment)}`;
+  els.pnlUnitChip.textContent = `${scale} | Organic variances`;
+  els.pnlUnitChipBudget.textContent = `${scale} | Organic variances`;
+  els.pnlUnitChipPy.textContent = `${scale} | Organic variances`;
+
+  els.bridgeLe.innerHTML = buildBridgeMarkup(segment, visibleLines, period, "LE", "vsLE", "le");
+  els.bridgeBudget.innerHTML = buildBridgeMarkup(segment, visibleLines, period, "Budget", "vsBudget", "budget");
+  els.bridgePy.innerHTML = buildBridgeMarkup(segment, visibleLines, period, "PY", "vsPY", "py");
+
+  els.pnlTable.innerHTML = visibleLines.map((line) => {
+    const snapshot = line[period];
+    const type = inferPnlType(line.line);
+    const leKey = pnlCommentaryKey(segment.id, period, line.line, "le");
+    const budgetKey = pnlCommentaryKey(segment.id, period, line.line, "budget");
+    const pyKey = pnlCommentaryKey(segment.id, period, line.line, "py");
+    return `
+      <tr class="${pnlRowClass(line.line)}">
+        <td class="line-label">${escapeHtml(line.line)}</td>
+        <td>${formatMetricValue(snapshot?.actual, type, line.line)}</td>
+        <td>${formatMetricValue(snapshot?.le, type, line.line)}</td>
+        <td>${formatMetricValue(snapshot?.budget, type, line.line)}</td>
+        <td>${formatMetricValue(snapshot?.py, type, line.line)}</td>
+        <td>${renderVarianceBubble(formatVariance(snapshot?.vsLE, type, line.line), varianceClass(snapshot?.vsLE))}</td>
+        <td class="commentary-cell ${state.commentaryVisibility.le ? "" : "is-hidden"}" data-commentary-cell="le">${renderCommentaryField("pnl", leKey, state.pnlCommentary[leKey] || "", "vs LE commentary")}</td>
+        <td>${renderVarianceBubble(formatVariance(snapshot?.vsBudget, type, line.line), varianceClass(snapshot?.vsBudget))}</td>
+        <td class="commentary-cell ${state.commentaryVisibility.budget ? "" : "is-hidden"}" data-commentary-cell="budget">${renderCommentaryField("pnl", budgetKey, state.pnlCommentary[budgetKey] || "", "vs Budget commentary")}</td>
+        <td>${renderVarianceBubble(formatVariance(snapshot?.vsPY, type, line.line), varianceClass(snapshot?.vsPY))}</td>
+        <td class="commentary-cell ${state.commentaryVisibility.py ? "" : "is-hidden"}" data-commentary-cell="py">${renderCommentaryField("pnl", pyKey, state.pnlCommentary[pyKey] || "", "vs PY commentary")}</td>
+      </tr>
+    `;
+  }).join("");
+
+  document.querySelectorAll("[data-commentary-column]").forEach((cell) => {
+    const key = cell.getAttribute("data-commentary-column");
+    cell.classList.toggle("is-hidden", !state.commentaryVisibility[key]);
+  });
+}
+
+function renderCommentaryToggleState() {
+  els.pnlCommentaryToggles?.querySelectorAll("[data-toggle-commentary]").forEach((button) => {
+    const key = button.dataset.toggleCommentary;
+    button.classList.toggle("is-active", state.commentaryVisibility[key]);
+  });
+}
+
+function renderCommentaryLockState() {
+  if (!els.commentaryLock) return;
+  els.commentaryLock.textContent = state.commentaryLocked ? "Commentary Locked" : "Commentary Unlocked";
+  els.commentaryLock.classList.toggle("is-active", !state.commentaryLocked);
+}
+
+function buildKpiDetailSections(segment, period) {
+  const groups = (segment.kpiDetails || []).filter((group) => group.metric !== "AOIG" && (group.lines || []).length);
+  if (!groups.length) return `<div class="empty-state">No KPI sub-unit detail was available in the generated data.</div>`;
+
+  return `
+    <div class="detail-section-stack kpi-layout">
+      ${groups.map((group) => `
+        <section class="detail-section">
+          <div class="panel-header">
+            <h2>${escapeHtml(group.metric)}</h2>
+            <span class="chip">${escapeHtml(getPeriodDisplay(segment, period).shortLabel)}</span>
+          </div>
+          ${buildKpiCardLayout(segment, group, period)}
+        </section>
+      `).join("")}
+    </div>
+  `;
+}
+
+function buildKpiCardLayout(segment, group, period) {
+  const type = inferMetricType(group.metric);
+  const cardMarkup = (line, index) => {
+    const snapshot = line[period];
+    const mainClass = index === 0 ? "detail-line-card is-main-card" : "detail-line-card";
+    return `
+      <article class="${mainClass}">
+        <div class="detail-line-top">
+          <div>
+            <h3>${escapeHtml(line.label)}</h3>
+            <p class="detail-actual">${formatMetricValue(snapshot?.actual, type, line.label)}</p>
+          </div>
+        </div>
+        <div class="variance-chip-row">
+          ${renderVarianceChip("vs LE", resolveVarianceValue(snapshot, "le", line.label), type, line.label)}
+          ${renderVarianceChip("vs Budget", resolveVarianceValue(snapshot, "budget", line.label), type, line.label)}
+          ${renderVarianceChip("vs PY", resolveVarianceValue(snapshot, "py", line.label), type, line.label)}
+        </div>
+      </article>
+    `;
+  };
+
+  if (segment.id === "rbi-intl" && group.lines.length === 5) {
+    return `
+      <div class="detail-card-grid detail-card-grid-intl">
+        <div class="detail-card-grid-intl-main">
+          ${cardMarkup(group.lines[0], 0)}
+        </div>
+        <div class="detail-card-grid-intl-sub">
+          ${group.lines.slice(1).map((line, index) => cardMarkup(line, index + 1)).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="detail-card-grid">
+      ${group.lines.map((line, index) => cardMarkup(line, index)).join("")}
+    </div>
+  `;
+}
+
+function buildActualBar(value, lines, period, type, label) {
+  const maxAbs = Math.max(...lines.map((line) => Math.abs(line?.[period]?.actual ?? 0)), 0.0001);
+  const width = Math.abs((value ?? 0) / maxAbs) * 100;
+  return `
+    <div class="detail-bar-row">
+      <div class="bar-track full">
+        <div class="bar-fill ${varianceClass(value)}" style="left:0%; width:${width}%;"></div>
+      </div>
+      <div class="bar-value">${formatMetricValue(value, type, label)}</div>
+    </div>
+  `;
+}
+
+function buildBridgeMarkup(segment, lines, period, label, varianceKey, baselineKey) {
+  const totalLine = findTotalAoiLine(lines);
+  const baselineValue = totalLine?.[period]?.[baselineKey];
+  const actualValue = totalLine?.[period]?.actual;
+  const organicAoiVariance = getDirectVarianceValue(totalLine?.[period], baselineKey);
+  const nominalAoiVariance = calculateNominalVariance(totalLine?.[period], baselineKey);
+  const excludedDriverLabels = ["total franchise revenue", "fz sales", "franchise aoi", "royalty rate %"];
+  if (segment?.id === "rbi-level") excludedDriverLabels.push("ffs aoi");
+  const driverOrder = lines
+    .filter((line) => line.line !== totalLine?.line && !excludedDriverLabels.includes(line.line.toLowerCase()))
+    .map((line) => line.line);
+
+  const driverLines = driverOrder.map((name) => {
+    const line = lines.find((item) => item.line === name);
+    return { line: line.line, value: getDirectVarianceValue(line?.[period], baselineKey), type: inferPnlType(line.line) };
+  }).filter((line) => line.value !== null && line.value !== undefined && !Number.isNaN(line.value));
+
+  const fxValue =
+    nominalAoiVariance !== null && nominalAoiVariance !== undefined &&
+    organicAoiVariance !== null && organicAoiVariance !== undefined
+      ? nominalAoiVariance - organicAoiVariance
+      : null;
+  const bridgeLines = driverLines.slice();
+  if (fxValue !== null && Math.abs(fxValue) > 0.0001) bridgeLines.push({ line: "FX", value: fxValue, type: "currency" });
+  const maxAbs = Math.max(...bridgeLines.map((line) => Math.abs(line.value ?? 0)), 0.0001);
+
+  return `
+    <div class="bridge-card">
+      <div class="bridge-summary bridge-summary-four">
+        <div>
+          <p class="bridge-label">${escapeHtml(label)}</p>
+          <p class="bridge-number">${formatMetricValue(baselineValue, "currency", "Total AOI")}</p>
+        </div>
+        <div>
+          <p class="bridge-label">Actual</p>
+          <p class="bridge-number">${formatMetricValue(actualValue, "currency", "Total AOI")}</p>
+        </div>
+        <div>
+          <p class="bridge-label">Nominal AOI Variance</p>
+          <p class="bridge-number">${formatVariance(nominalAoiVariance, "currency", "Total AOI")}</p>
+        </div>
+        <div>
+          <p class="bridge-label">Organic AOI Variance</p>
+          <p class="bridge-number">${formatVariance(organicAoiVariance, "currency", "Total AOI")}</p>
+        </div>
+      </div>
+      <div class="bridge-list">
+        ${bridgeLines.map((line) => {
+          const width = Math.abs((line.value ?? 0) / maxAbs) * 100;
+          return `
+            <div class="bridge-row ${line.total ? "bridge-total-row" : ""}">
+              <div class="bridge-line">${escapeHtml(line.line)}</div>
+              <div class="bar-track">
+                <div class="bar-fill ${varianceClass(line.value)}" style="left:${(line.value ?? 0) >= 0 ? "50" : 50 - width / 2}%; width:${width / 2}%;"></div>
+              </div>
+              <div class="bridge-value ${varianceClass(line.value)}">${formatVariance(line.value, line.type, line.line)}</div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderVarianceBarChart({ element, items, valueMode }) {
+  if (!items.length) {
+    element.innerHTML = `<div class="empty-state">No data available for this view.</div>`;
+    return;
+  }
+
+  const maxAbs = Math.max(...items.map((item) => Math.abs(item.value ?? 0)), 0.0001);
+  element.innerHTML = `
+    <div class="chart-list">
+      ${items.map((item) => {
+        const percent = Math.abs((item.value ?? 0) / maxAbs) * 50;
+        const left = (item.value ?? 0) >= 0 ? 50 : 50 - percent;
+        return `
+          <div class="chart-row">
+            <div class="chart-label">${escapeHtml(item.label)}</div>
+            <div class="bar-track">
+              <div class="bar-fill ${varianceClass(item.value)}" style="left:${left}%; width:${percent}%;"></div>
+            </div>
+            <div class="bar-value">${formatChartValue(item.value, item.type, valueMode, item.label)}</div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+
+function buildPrimaryStat(title, value, varianceMarkup) {
+  return `<article class="summary-card summary-card-primary"><h3>${escapeHtml(title)}</h3><p class="big-number">${value}</p>${varianceMarkup}</article>`;
+}
+
+function renderVarianceSet(snapshot, type, label) {
+  if (!snapshot) return `<p class="mini-meta">n/a</p>`;
+  return `<div class="variance-chip-row">${renderVarianceChip("vs LE", resolveVarianceValue(snapshot, "le", label), type, label)}${renderVarianceChip("vs Budget", resolveVarianceValue(snapshot, "budget", label), type, label)}${renderVarianceChip("vs PY", resolveVarianceValue(snapshot, "py", label), type, label)}</div>`;
+}
+
+function renderVarianceChip(label, value, type, itemLabel) {
+  return `<span class="mini-chip ${varianceClass(value)}">${escapeHtml(label)} ${formatVariance(value, type, itemLabel)}</span>`;
+}
+
+function renderVarianceBubble(text, stateClass) {
+  return `<span class="mini-chip ${stateClass} variance-bubble">${text}</span>`;
+}
+
+function renderCommentaryField(kind, key, text, placeholder) {
+  if (state.commentaryLocked) {
+    if (!text.trim()) return "";
+    return `<div class="commentary-bubble is-locked">${formatCommentaryDisplayNested(text)}</div>`;
+  }
+
+  const attr = kind === "flow" ? "data-flow-commentary-key" : "data-pnl-commentary-key";
+  return `<textarea class="commentary-input ${kind === "flow" ? "flow-commentary-input" : "pnl-commentary-input"}" ${attr}="${escapeAttribute(key)}" placeholder="${escapeAttribute(placeholder)}">${escapeHtml(text)}</textarea>`;
+}
+
+function toggleCommentaryLock() {
+  if (state.commentaryLocked) {
+    const attempt = window.prompt("Enter password to unlock commentary");
+    if (attempt !== COMMENTARY_PASSWORD) return;
+    state.commentaryLocked = false;
+  } else {
+    state.commentaryLocked = true;
+  }
+  saveStored(COMMENTARY_LOCK_STORAGE_KEY, state.commentaryLocked);
+  render();
+}
+
+function exportAllSegmentHtmls() {
+  const segments = state.data?.segments || [];
+  const fullHtml = buildStandaloneHtml({
+    exportStateOverride: {
+      selectedSegmentId: state.selectedSegmentId,
+      selectedPeriod: state.selectedPeriod,
+      selectedView: state.selectedView,
+    },
+  });
+  downloadHtmlFile(fullHtml, buildFullDashboardExportFilename());
+
+  segments.forEach((segment, index) => {
+    window.setTimeout(() => {
+      const html = buildStandaloneHtml({
+        dataOverride: { ...state.data, segments: [segment] },
+        exportStateOverride: {
+          selectedSegmentId: segment.id,
+          selectedPeriod: state.selectedPeriod,
+          selectedView: state.selectedView,
+        },
+        publicMode: true,
+      });
+      downloadHtmlFile(html, buildSegmentExportFilename(segment));
+    }, (index + 1) * 250);
+  });
+
+  pulseExportButton(els.exportAllSegments, "7 Files Exported");
+}
+
+function buildStandaloneHtml(options = {}) {
+  const exportState = {
+    flowCommentary: pruneCommentary(state.flowCommentary),
+    pnlCommentary: pruneCommentary(state.pnlCommentary),
+    commentaryLocked: state.commentaryLocked,
+    commentaryVisibility: state.commentaryVisibility,
+    selectedSegmentId: state.selectedSegmentId,
+    selectedPeriod: state.selectedPeriod,
+    selectedView: state.selectedView,
+    ...(options.exportStateOverride || {}),
+  };
+
+  const exportData = options.dataOverride || state.data;
+
+  const clone = document.documentElement.cloneNode(true);
+  const existingStateScript = clone.querySelector("#embedded-dashboard-state");
+  if (existingStateScript) existingStateScript.remove();
+  const dataScript = Array.from(clone.querySelectorAll("script")).find((node) => node.textContent.includes("window.DASHBOARD_DATA ="));
+  if (dataScript) dataScript.textContent = `window.DASHBOARD_DATA = ${JSON.stringify(exportData)};`;
+  if (options.publicMode) {
+    const heroActions = clone.querySelector(".hero-actions");
+    if (heroActions) {
+      heroActions.innerHTML = `<span class="chip public-badge">vPublic</span>`;
+    }
+  }
+
+  const script = document.createElement("script");
+  script.id = "embedded-dashboard-state";
+  script.textContent = `window.RBI_EMBEDDED_STATE = ${JSON.stringify(exportState)};`;
+  const firstScript = clone.querySelector("script");
+  if (firstScript?.parentNode) {
+    firstScript.parentNode.insertBefore(script, firstScript);
+  } else if (clone.querySelector("head")) {
+    clone.querySelector("head").appendChild(script);
+  } else {
+    clone.querySelector("body")?.appendChild(script);
+  }
+
+  return `<!DOCTYPE html>\n${clone.outerHTML}`;
+}
+
+function downloadHtmlFile(html, filename) {
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function pulseExportButton(button, message) {
+  if (button) {
+    const prior = button.textContent;
+    button.textContent = message;
+    window.setTimeout(() => {
+      button.textContent = prior;
+    }, 1500);
+  }
+}
+
+function stepSegment(direction) {
+  const segments = state.data.segments;
+  const currentIndex = segments.findIndex((segment) => segment.id === state.selectedSegmentId);
+  const nextIndex = (currentIndex + direction + segments.length) % segments.length;
+  state.selectedSegmentId = segments[nextIndex].id;
+  render();
+}
+
+function getSelectedSegment() {
+  return state.data?.segments.find((segment) => segment.id === state.selectedSegmentId) ?? null;
+}
+
+function findKpiMetric(segment, metric) {
+  return segment.kpi.find((item) => item.metric === metric);
+}
+
+function findFlowDriver(drivers, name) {
+  return drivers.find((driver) => driver.line?.toLowerCase() === name.toLowerCase()) ?? null;
+}
+
+function findTotalAoiLine(lines) {
+  return lines.find((line) => /^total aoi$/i.test(line.line)) ?? lines[lines.length - 1] ?? null;
+}
+
+function getVisibleFlowDrivers(segment, period) {
+  return (segment.flowthrough?.drivers || []).filter((driver) => {
+    if (/^check$/i.test(driver.line)) return false;
+    return driver?.[period]?.flowthrough !== null || driver?.[period]?.yoy !== null || hasMeaningfulText(driver?.[period]?.yoyText);
+  });
+}
+
+function getVisiblePnlLines(segment) {
+  return (segment.pnl?.lines || []).filter((line) => !/^check$/i.test(line.line));
+}
+
+function hasMeaningfulText(value) {
+  return value !== null && value !== undefined && String(value).trim() !== "";
+}
+
+function inferMetricType(metric) {
+  if (["SST", "SSS", "Unit %", "SWSG", "AOIG"].includes(metric)) return "percentage";
+  if (metric === "NRG") return "number";
+  return "currency";
+}
+
+function inferPnlType(line) {
+  return line === "Royalty Rate %" ? "percentage" : "currency";
+}
+
+function getScaleLabel(segment) {
+  return `In ${segment.currency}$M, unless noted`;
+}
+
+function resolveVarianceValue(snapshot, comparisonKey, label = "") {
+  if (!snapshot) return null;
+  const shouldForceCalculated = /^aoig$/i.test(String(label).trim());
+  const direct = getDirectVarianceValue(snapshot, comparisonKey);
+  if (!shouldForceCalculated && direct !== null && direct !== undefined && !Number.isNaN(direct)) return direct;
+  return calculateNominalVariance(snapshot, comparisonKey);
+}
+
+function aoigValueWithDerivedVariance(snapshot) {
+  if (!snapshot) return {};
+  return {
+    actual: snapshot.actual,
+    vsLE: resolveVarianceValue(snapshot, "le", "AOIG"),
+    vsBudget: resolveVarianceValue(snapshot, "budget", "AOIG"),
+    vsPY: resolveVarianceValue(snapshot, "py", "AOIG"),
+  };
+}
+
+function formatMetricValue(value, type, label = "") {
+  if (value === null || value === undefined || Number.isNaN(value)) return "n/a";
+  if (type === "percentage") return formatPercent(value, false, getPercentDecimals(label));
+  if (type === "number") return formatPlainNumber(value);
+  return formatCurrency(value, false);
+}
+
+function formatVariance(value, type, label = "") {
+  if (value === null || value === undefined || Number.isNaN(value)) return "n/a";
+  if (type === "percentage") return formatPercent(value, true, getPercentDecimals(label));
+  if (type === "number") return formatPlainNumber(value, true);
+  return formatCurrency(value, true);
+}
+
+function formatPercent(value, signed = false, decimals = 1) {
+  const text = `${Math.abs(value * 100).toFixed(decimals)}%`;
+  if (!signed) return value < 0 ? `(${text})` : text;
+  if (value < 0) return `(${text})`;
+  if (value > 0) return `+${text}`;
+  return text;
+}
+
+function formatPlainNumber(value, signed = false) {
+  const formatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0, minimumFractionDigits: 0 });
+  const text = formatter.format(Math.abs(value));
+  if (!signed) return value < 0 ? `(${text})` : text;
+  if (value < 0) return `(${text})`;
+  if (value > 0) return `+${text}`;
+  return text;
+}
+
+function formatCurrency(value, signed = false) {
+  const formatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+  const text = `$${formatter.format(Math.abs(value))}`;
+  if (!signed) return value < 0 ? `(${text})` : text;
+  if (value < 0) return `(${text})`;
+  return value > 0 && signed ? text : text;
+}
+
+function formatChartValue(value, type, valueMode, label = "") {
+  if (value === null || value === undefined || Number.isNaN(value)) return "n/a";
+  if (valueMode === "percentage" || type === "percentage") return formatPercent(value, false, getPercentDecimals(label));
+  if (type === "number") return formatPlainNumber(value, true);
+  return formatCurrency(value, true);
+}
+
+function formatYoY(value, rawText, label = "") {
+  if (value !== null && value !== undefined && !Number.isNaN(value)) return formatPercent(value, false, getPercentDecimals(label));
+  if (!rawText) return "";
+  const trimmed = String(rawText).trim();
+  if (!trimmed) return "";
+  if (/^if\(/i.test(trimmed) || /=/.test(trimmed) || /nm/i.test(trimmed)) return "nm";
+  return trimmed;
+}
+
+function getPeriodDisplay(segment, period) {
+  const labels = segment.pnl?.periodLabels || {};
+  if (period === "quarter") return { shortLabel: labels.quarter || "Q1", longLabel: `Quarter (${labels.quarter || "Q1"})`, badge: `Quarter = ${labels.quarter || "Q1"}` };
+  if (period === "ytd") return { shortLabel: labels.ytd || "YTD", longLabel: `YTD (${labels.ytd || "YTD"})`, badge: `YTD = ${labels.ytd || "YTD"}` };
+  return { shortLabel: labels.month || "March", longLabel: `Month (${labels.month || "March"})`, badge: `Month = ${labels.month || "March"}` };
+}
+
+function varianceClass(value) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "neutral";
+  if (value > 0) return "good";
+  if (value < 0) return "bad";
+  return "neutral";
+}
+
+function flowRowClass(line) {
+  if (/^sss$/i.test(line) || /^swsg$/i.test(line) || /^total flowthrough$/i.test(line) || /^aoi growth$/i.test(line)) return "pnl-summary-row";
+  return "pnl-detail-row";
+}
+
+function pnlRowClass(line) {
+  if (/^total aoi$/i.test(line)) return "pnl-total-row";
+  if (/aoi/i.test(line) || /^total /i.test(line)) return "pnl-summary-row";
+  return "pnl-detail-row";
+}
+
+function flowDirection(value) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "Neutral";
+  if (value > 0) return "Positive";
+  if (value < 0) return "Negative";
+  return "Flat";
+}
+
+function flowCommentaryKey(segmentId, period, line) {
+  return `${segmentId}__${period}__flow__${line}`;
+}
+
+function pnlCommentaryKey(segmentId, period, line, scenario) {
+  return `${segmentId}__${period}__pnl__${scenario}__${line}`;
+}
+
+function getPercentDecimals(label = "") {
+  return /^royalty rate %$/i.test(String(label).trim()) ? 2 : 1;
+}
+
+function getDirectVarianceValue(snapshot, comparisonKey) {
+  if (!snapshot) return null;
+  return comparisonKey === "le" ? snapshot.vsLE : comparisonKey === "budget" ? snapshot.vsBudget : snapshot.vsPY;
+}
+
+function calculateNominalVariance(snapshot, comparisonKey) {
+  if (!snapshot) return null;
+  const baseline = comparisonKey === "le" ? snapshot.le : comparisonKey === "budget" ? snapshot.budget : snapshot.py;
+  if (snapshot.actual === null || snapshot.actual === undefined || baseline === null || baseline === undefined) return null;
+  return snapshot.actual - baseline;
+}
+
+function loadStored(key) {
+  try {
+    return JSON.parse(window.localStorage.getItem(key) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function mergeStored(baseValue, storedValue) {
+  return { ...(baseValue || {}), ...(storedValue || {}) };
+}
+
+function saveStored(key, value) {
+  window.localStorage.setItem(key, JSON.stringify(value));
+}
+
+function loadLockState() {
+  if (typeof EMBEDDED_STATE.commentaryLocked === "boolean") return EMBEDDED_STATE.commentaryLocked;
+  return window.localStorage.getItem(COMMENTARY_LOCK_STORAGE_KEY) !== "false";
+}
+
+function pruneCommentary(commentary) {
+  return Object.fromEntries(
+    Object.entries(commentary || {}).filter(([, value]) => String(value || "").trim())
+  );
+}
+
+function formatCommentaryDisplay(text) {
+  const blocks = [];
+  let activeList = null;
+  let activeParagraph = null;
+
+  const flushParagraph = () => {
+    if (activeParagraph && activeParagraph.trim()) {
+      blocks.push({ type: "paragraph", text: activeParagraph.trim() });
+    }
+    activeParagraph = null;
+  };
+
+  const flushList = () => {
+    if (activeList?.length) {
+      blocks.push({ type: "list", items: activeList.slice() });
+    }
+    activeList = null;
+  };
+
+  const normalizedLines = String(text || "")
+    .replace(/\r\n/g, "\n")
+    .split("\n");
+
+  normalizedLines.forEach((rawLine) => {
+    const line = rawLine.replace(/\s+/g, " ").trim();
+    if (!line) {
+      flushParagraph();
+      flushList();
+      return;
+    }
+
+    const bulletMatch = line.match(/^(?:[-*â€¢oO\u25A1\u2610\u25AA\u25CF])\s+(.*)$/);
+    if (bulletMatch) {
+      flushParagraph();
+      if (!activeList) activeList = [];
+      activeList.push(bulletMatch[1].trim());
+      return;
+    }
+
+    const isHeading = /:\s*$/.test(line);
+    if (isHeading) {
+      flushParagraph();
+      flushList();
+      blocks.push({ type: "heading", text: line.replace(/:\s*$/, "") });
+      return;
+    }
+
+    if (activeList?.length) {
+      activeList[activeList.length - 1] = `${activeList[activeList.length - 1]} ${line}`.trim();
+      return;
+    }
+
+    activeParagraph = activeParagraph ? `${activeParagraph} ${line}` : line;
+  });
+
+  flushParagraph();
+  flushList();
+
+  return blocks.map((block) => {
+    if (block.type === "heading") {
+      return `<p class="commentary-heading">${formatCommentaryInline(block.text)}</p>`;
+    }
+    if (block.type === "list") {
+      return `<ul class="commentary-list">${block.items.map((item) => `<li>${formatCommentaryInline(item)}</li>`).join("")}</ul>`;
+    }
+    return `<p>${formatCommentaryInline(block.text)}</p>`;
+  }).join("");
+}
+
+function formatCommentaryInline(text) {
+  return escapeHtml(text);
+}
+
+function formatCommentaryDisplayNested(text) {
+  const blocks = [];
+  let activeParagraph = null;
+  let listStack = [];
+
+  const flushParagraph = () => {
+    if (activeParagraph && activeParagraph.trim()) {
+      blocks.push({ type: "paragraph", text: activeParagraph.trim() });
+    }
+    activeParagraph = null;
+  };
+
+  const createListNode = () => ({ type: "list", items: [] });
+
+  const flushList = () => {
+    if (listStack.length) {
+      blocks.push(listStack[0]);
+    }
+    listStack = [];
+  };
+
+  const getIndentLevel = (line) => {
+    const leadingWhitespace = (line.match(/^\s*/) || [""])[0].replace(/\t/g, "  ");
+    return Math.floor(leadingWhitespace.length / 2);
+  };
+
+  const addListItem = (level, value) => {
+    const normalizedLevel = Math.max(0, level);
+
+    while (listStack.length > normalizedLevel + 1) {
+      listStack.pop();
+    }
+
+    if (!listStack.length) {
+      listStack.push(createListNode());
+    }
+
+    while (listStack.length < normalizedLevel + 1) {
+      const parentList = listStack[listStack.length - 1];
+      let parentItem = parentList.items[parentList.items.length - 1];
+      if (!parentItem) {
+        parentItem = { text: "", children: createListNode() };
+        parentList.items.push(parentItem);
+      } else if (!parentItem.children) {
+        parentItem.children = createListNode();
+      }
+      listStack.push(parentItem.children);
+    }
+
+    const targetList = listStack[normalizedLevel];
+    targetList.items.push({ text: value.trim() });
+  };
+
+  String(text || "")
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .forEach((rawLine) => {
+      const trimmedLine = rawLine.trim();
+      if (!trimmedLine) {
+        flushParagraph();
+        flushList();
+        return;
+      }
+
+      const bulletMatch = rawLine.match(/^\s*(?:[-*â€¢oO\u25A1\u2610\u25AA\u25CF])\s+(.*)$/);
+      if (bulletMatch) {
+        flushParagraph();
+        addListItem(getIndentLevel(rawLine), bulletMatch[1].replace(/\s+/g, " ").trim());
+        return;
+      }
+
+      const line = trimmedLine.replace(/\s+/g, " ");
+      if (/:\s*$/.test(line)) {
+        flushParagraph();
+        flushList();
+        blocks.push({ type: "heading", text: line.replace(/:\s*$/, "") });
+        return;
+      }
+
+      if (listStack.length) {
+        const currentList = listStack[listStack.length - 1];
+        const currentItem = currentList.items[currentList.items.length - 1];
+        if (currentItem) {
+          currentItem.text = `${currentItem.text} ${line}`.trim();
+        }
+        return;
+      }
+
+      activeParagraph = activeParagraph ? `${activeParagraph} ${line}` : line;
+    });
+
+  flushParagraph();
+  flushList();
+
+  return blocks.map((block) => {
+    if (block.type === "heading") {
+      return `<p class="commentary-heading">${formatCommentaryInline(block.text)}</p>`;
+    }
+    if (block.type === "list") {
+      return renderNestedCommentaryList(block);
+    }
+    return `<p>${formatCommentaryInline(block.text)}</p>`;
+  }).join("");
+}
+
+function renderNestedCommentaryList(list) {
+  return `<ul class="commentary-list">${(list.items || []).map((item) => {
+    const childMarkup = item.children ? renderNestedCommentaryList(item.children) : "";
+    return `<li><span>${formatCommentaryInline(item.text)}</span>${childMarkup}</li>`;
+  }).join("")}</ul>`;
+}
+
+function buildSegmentExportFilename(segment) {
+  const periodBadge = getPeriodDisplay(segment, state.selectedPeriod).shortLabel;
+  const safeSegment = (segment?.name || "segment").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
+  const safePeriod = String(periodBadge || "period").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
+  return `RBI-Close-Dashboard-${safeSegment}-${safePeriod}-Standalone.html`;
+}
+
+function buildFullDashboardExportFilename() {
+  const safePeriod = String(getPeriodDisplay(getSelectedSegment(), state.selectedPeriod).shortLabel || "period")
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-|-$/g, "");
+  return `RBI-Close-Dashboard-Full-${safePeriod}.html`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function escapeAttribute(value) {
+  return escapeHtml(value);
+}
+
+</script>
+</body>
+</html>

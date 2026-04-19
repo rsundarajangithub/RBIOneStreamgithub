@@ -2,19 +2,24 @@ name: Fetch OneStream Data
 
 on:
   schedule:
-    - cron: '0 */2 * * *'  # Every 2 hours
-  workflow_dispatch:        # Manual trigger
+    - cron: '0 */2 * * *'   # every 2 hours
+  workflow_dispatch:        # manual trigger
 
 permissions:
   contents: write
 
 jobs:
-  fetch-data:
+  build-dashboard:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
 
-      - name: Fetch OneStream data
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Fetch brucetest from OneStream
         env:
           OS_BASE_URL: https://rbi-test.onestreamcloud.com
           OS_ENDPOINT: https://rbi-test.onestreamcloud.com/onestreamapi/api/DataProvider/GetAdoDataSetForAdapter
@@ -25,42 +30,51 @@ jobs:
         run: |
           mkdir -p data
 
-          declare -a SEGMENTS=("bk-usc" "plk-usc" "fhs-usc" "th-usc" "intl")
+          # Pull every brucetest row in one shot.  ~388K rows is fine for
+          # the SqlAdapter response payload; if it ever paginates we'll
+          # split by segment.
+          SQL="SELECT segment, section, dashboard_label, entity, scenario, time_member, os_account, flow, origin, intercomp, ud1, ud2, ud3, ud4, ud5, ud6, ud7, ud8, amount, value_scale, extracted_at FROM brucetest"
 
-          for seg in "${SEGMENTS[@]}"; do
-            SQL="SELECT entity, scenario, time_member AS time, 'Periodic' AS [view], os_account AS account, flow, intercomp AS ic, ud1, ud2, ud3, ud4, ud5, ud6, ud7, ud8, amount AS value, extracted_at
-                 FROM brucetest
-                 WHERE segment = '${seg}'"
+          BODY=$(jq -n \
+            --arg app     "$OS_APP_NAME" \
+            --arg adapter "$OS_ADAPTER"  \
+            --arg sql     "$SQL"         \
+            --arg baseUrl "$OS_BASE_URL" \
+            '{
+              BaseWebServerUrl: $baseUrl,
+              ApplicationName:  $app,
+              AdapterName:      $adapter,
+              ParameterValues:  ("<SqlQuery>" + $sql + "</SqlQuery>")
+            }')
 
-            BODY=$(jq -n \
-              --arg app "$OS_APP_NAME" \
-              --arg adapter "$OS_ADAPTER" \
-              --arg sql "$SQL" \
-              --arg baseUrl "$OS_BASE_URL" \
-              '{BaseWebServerUrl: $baseUrl, ApplicationName: $app, AdapterName: $adapter, ParameterValues: ("<SqlQuery>" + $sql + "</SqlQuery>")}')
+          echo "Fetching brucetest..."
+          HTTP_CODE=$(curl -s -o data/brucetest_export.json -w "%{http_code}" \
+            -X POST "${OS_ENDPOINT}?api-version=${OS_API_VERSION}" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${OS_PAT}" \
+            -d "$BODY")
 
-            echo "Fetching ${seg} from brucetest..."
-            HTTP_CODE=$(curl -s -o "data/${seg}.json" -w "%{http_code}" \
-              -X POST "${OS_ENDPOINT}?api-version=${OS_API_VERSION}" \
-              -H "Content-Type: application/json" \
-              -H "Authorization: Bearer ${OS_PAT}" \
-              -d "$BODY")
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "::error::brucetest fetch returned HTTP ${HTTP_CODE}"
+            head -c 1000 data/brucetest_export.json || true
+            exit 1
+          fi
 
-            if [ "$HTTP_CODE" -ne 200 ]; then
-              echo "WARNING: ${seg} returned HTTP ${HTTP_CODE}"
-              echo "Response: $(cat data/${seg}.json | head -c 500)"
-              echo '{"Tables":[{"Columns":[],"Rows":[]}]}' > "data/${seg}.json"
-            else
-              echo "OK: ${seg} fetched successfully"
-            fi
-          done
+          ROWS=$(jq '[.Tables[0].Rows | length] | add' data/brucetest_export.json)
+          echo "OK: brucetest_export.json has ${ROWS} rows"
 
-          echo "{\"fetchedAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\", \"sourceTable\": \"brucetest\"}" > data/meta.json
-          echo "All segments fetched."
+      - name: Transform brucetest -> dashboard.json
+        run: |
+          python scripts/transform.py 2>&1 | tee transform.log
 
       - name: Commit and push data
         run: |
-          git config user.name "github-actions[bot]"
+          git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/
-          git diff --staged --quiet || (git commit -m "Update OneStream data $(date -u +%Y-%m-%dT%H:%M:%SZ)" && git push)
+          # Only stage what the dashboard consumes.  brucetest_export.json
+          # is .gitignored (large + raw cube data).
+          git add data/dashboard.json data/meta.json
+          git diff --staged --quiet || (
+            git commit -m "Refresh dashboard.json $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push
+          )
