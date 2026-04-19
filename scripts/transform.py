@@ -48,9 +48,13 @@ DEFAULT_PERIOD: dict[str, Any] = {
     "label": "March 2026",
     "close_year": 2026,
     "periods": {
-        "month":   {"cy": "2026M3", "py": "2025M3"},
-        "quarter": {"cy": "2026Q1", "py": "2025Q1"},
-        "ytd":     {"cy": "2026Q1", "py": "2025Q1"},
+        # ppy is the prior-prior-year reference -- needed only for the
+        # ``py`` column of YoY-ratio metrics (AOIG, Unit %).  SSS/SST do
+        # not need it because the comp accounts for both years live at
+        # the same time member.
+        "month":   {"cy": "2026M3", "py": "2025M3", "ppy": "2024M3"},
+        "quarter": {"cy": "2026Q1", "py": "2025Q1", "ppy": "2024Q1"},
+        "ytd":     {"cy": "2026Q1", "py": "2025Q1", "ppy": "2024Q1"},
     },
     # dashboard_column -> (os_scenario, period_side)
     # period_side picks "cy" or "py" from the period dict above.
@@ -190,55 +194,9 @@ def safe_div(num: float, den: float) -> float:
 # computed fields, not stored OneStream accounts.  Hard-coded coordinates
 # below are taken from how the SSS_SST OS / NRG OS sheets define them.
 
-CALC_BASE: dict[str, dict[str, str]] = {
-    # Account used for store-count based metrics (Unit %).
-    "store_count": {"account": "SystemStoreCount"},
-    # Sales used for SWSG weighting.
-    "total_sales": {"account": "TotalSales"},
-    # AOI for AOIG.
-    "aoi":         {"account": "AOI"},
-    # Compset Sales CY for SSS reuse in SWSG (already covered separately).
-    "sales_cy":    {"account": "ReportedSystemCompSalesCY"},
-}
-
-
-def calc_unit_pct(brucetest: dict, segment: str, cy_time: str, py_time: str, scenario_cy: str, scenario_py: str) -> float:
-    """Unit % = (StoreCount_CY / StoreCount_PY) - 1  for the segment rollup."""
-    # Use Top entity at segment-level proxy (best we can do without specific rule).
-    base = {
-        "entity": "RestaurantBrandsIntlMNGT",
-        "account": "SystemStoreCount",
-        "ud1": "Top", "ud2": "Top",
-        "ud3": SEGMENT_TO_UD3.get(segment, "Top"),
-        "ud4": "FPA_Reporting", "ud5": "Top", "ud6": "Top", "ud7": "Top", "ud8": "Top",
-    }
-    cy = lookup_amount(brucetest, base, scenario_cy, cy_time)
-    py = lookup_amount(brucetest, base, scenario_py, py_time)
-    return safe_div(cy - py, py)
-
-
-def calc_swsg(sss: float, unit_pct: float) -> float:
-    """SWSG ~ (1+SSS)(1+Unit%) - 1.  Standard sales-weighted growth."""
-    return (1.0 + sss) * (1.0 + unit_pct) - 1.0
-
-
-def calc_aoig(brucetest: dict, segment: str, cy_time: str, py_time: str, scenario_cy: str, scenario_py: str) -> float:
-    """AOIG = (AOI_CY / AOI_PY) - 1."""
-    base = {
-        "entity": "RestaurantBrandsIntlMNGT",
-        "account": "AOI",
-        "ud1": "LOB_TotalEBITDA_FPA", "ud2": "Top",
-        "ud3": SEGMENT_TO_UD3.get(segment, "Top"),
-        "ud4": "FPA_Reporting", "ud5": "Top", "ud6": "Top", "ud7": "Top", "ud8": "Top",
-    }
-    cy = lookup_amount(brucetest, base, scenario_cy, cy_time)
-    py = lookup_amount(brucetest, base, scenario_py, py_time)
-    return safe_div(cy - py, py)
-
-
 # UD3 segment-rollup labels -- verified against actual brucetest data.
-# Used by calc_unit_pct / calc_aoig (calculated KPI metrics) and as a
-# fallback when a mapping row's UD3 returns 0.
+# Used by the calculated KPI metrics and as a fallback when a mapping
+# row's UD3 returns 0.
 SEGMENT_TO_UD3 = {
     "th-cus":    "TH C&US",
     "bk-usc":    "BK USC",
@@ -247,6 +205,104 @@ SEGMENT_TO_UD3 = {
     "rbi-intl":  "RBI_International",
     "rbi-level": "RBI Organization",
 }
+
+
+def _seg_base(segment: str, account: str, ud1: str = "Top", ud2: str = "Top") -> dict[str, str]:
+    """Synthesise a mapping-style row for a segment-rollup intersection."""
+    return {
+        "entity":  "RestaurantBrandsIntlMNGT",
+        "account": account,
+        "ud1": ud1, "ud2": ud2,
+        "ud3": SEGMENT_TO_UD3.get(segment, "Top"),
+        "ud4": "FPA_Reporting",
+        "ud5": "Top", "ud6": "Top", "ud7": "Top", "ud8": "Top",
+    }
+
+
+def calc_sss_at(brucetest: dict, segment: str, scenario: str, time_member: str) -> float:
+    """SSS at a given (scenario, time) =
+       (ReportedSystemCompSalesCY - ReportedSystemCompSalesPY) / ReportedSystemCompSalesPY."""
+    cy_row = _seg_base(segment, "ReportedSystemCompSalesCY")
+    py_row = _seg_base(segment, "ReportedSystemCompSalesPY")
+    cy = lookup_amount(brucetest, cy_row, scenario, time_member)
+    py = lookup_amount(brucetest, py_row, scenario, time_member)
+    return safe_div(cy - py, py)
+
+
+def calc_sst_at(brucetest: dict, segment: str, scenario: str, time_member: str) -> float:
+    """SST at a given (scenario, time) using comp traffic accounts."""
+    cy_row = _seg_base(segment, "ReportedSystemCompTrafficCY")
+    py_row = _seg_base(segment, "ReportedSystemCompTrafficPY")
+    cy = lookup_amount(brucetest, cy_row, scenario, time_member)
+    py = lookup_amount(brucetest, py_row, scenario, time_member)
+    return safe_div(cy - py, py)
+
+
+def calc_aoig_at(brucetest: dict, segment: str, scenario: str, cy_time: str, prior_time: str) -> float:
+    """AOIG at (scenario, cy_time) vs Actual at prior_time."""
+    base = _seg_base(segment, "AOI", ud1="LOB_TotalEBITDA_FPA")
+    cy = lookup_amount(brucetest, base, scenario, cy_time)
+    py = lookup_amount(brucetest, base, "Actual", prior_time)
+    return safe_div(cy - py, py)
+
+
+def calc_unit_pct_at(brucetest: dict, segment: str, scenario: str, cy_time: str, prior_time: str) -> float:
+    """Unit % at (scenario, cy_time) vs Actual at prior_time."""
+    base = _seg_base(segment, "SystemStoreCount")
+    cy = lookup_amount(brucetest, base, scenario, cy_time)
+    py = lookup_amount(brucetest, base, "Actual", prior_time)
+    return safe_div(cy - py, py)
+
+
+def calc_swsg(sss: float, unit_pct: float) -> float:
+    """SWSG ~ (1+SSS)(1+Unit%) - 1.  Standard sales-weighted growth."""
+    return (1.0 + sss) * (1.0 + unit_pct) - 1.0
+
+
+# ---------- metric-type catalogue ---------------------------------------
+# Mirrors RBI-Close-Dashboard.html inferKpiType / inferPnlType so we
+# scale and shape values exactly the way the renderer wants them.
+
+KPI_PERCENT_METRICS = {"SST", "SSS", "Unit %", "SWSG", "AOIG"}
+KPI_NUMBER_METRICS  = {"NRG"}
+PNL_PERCENT_LINES   = {"Royalty Rate %"}
+
+
+def kpi_type(metric: str) -> str:
+    if metric in KPI_PERCENT_METRICS:
+        return "percentage"
+    if metric in KPI_NUMBER_METRICS:
+        return "number"
+    return "currency"
+
+
+def pnl_type(line: str) -> str:
+    return "percentage" if line in PNL_PERCENT_LINES else "currency"
+
+
+_SCEN_COLS = ("actual", "le", "budget", "py",
+              "scenario5", "scenario6", "scenario7",
+              "scenario8", "scenario9", "scenario10")
+
+_DOLLARS_PER_M = 1_000_000.0
+
+
+def scale_block_to_millions(block: dict[str, float]) -> dict[str, float]:
+    """Convert a raw-dollar period block to $M and recompute variances."""
+    for col in _SCEN_COLS:
+        block[col] = (block.get(col) or 0.0) / _DOLLARS_PER_M
+    block["vsLE"]     = block["actual"] - block["le"]
+    block["vsBudget"] = block["actual"] - block["budget"]
+    block["vsPY"]     = block["actual"] - block["py"]
+    return block
+
+
+def recompute_variances(block: dict[str, float]) -> dict[str, float]:
+    """Refresh vs* fields after scenario columns have been touched."""
+    block["vsLE"]     = (block.get("actual") or 0.0) - (block.get("le")     or 0.0)
+    block["vsBudget"] = (block.get("actual") or 0.0) - (block.get("budget") or 0.0)
+    block["vsPY"]     = (block.get("actual") or 0.0) - (block.get("py")     or 0.0)
+    return block
 
 
 # ---------- main shape build --------------------------------------------
@@ -297,118 +353,169 @@ def sum_months_for_quarter(brucetest: dict, mrow: dict[str, str], scenario: str,
     return total
 
 
-def populate_calculated_kpi(brucetest: dict, segment: str, metric: str, period_cfg: dict[str, Any], period_key: str) -> dict[str, float]:
+def populate_calculated_kpi(brucetest: dict, segment: str, metric: str,
+                            period_cfg: dict[str, Any], period_key: str) -> dict[str, float]:
+    """Build a period block where every scenario column carries that
+    scenario's own SSS/SST/Unit %/SWSG/AOIG ratio.
+
+    For ``actual``/``le``/``budget`` columns we compute the metric at
+    (that scenario, ``cy_time``) referenced against ``py_time``.
+    For the ``py`` column we report what the metric WAS in the prior
+    period -- i.e. evaluated at (Actual, ``py_time``) referenced
+    against ``ppy_time``.
+    """
     block = empty_period_block()
     pdef = period_cfg["periods"][period_key]
-    cy_time = pdef["cy"]
-    py_time = pdef["py"]
+    cy_time  = pdef["cy"]
+    py_time  = pdef["py"]
+    ppy_time = pdef.get("ppy") or py_time   # graceful fallback
 
     for col, sdef in period_cfg["scenarios"].items():
-        scen_cy = sdef["os_scenario"]
-        side    = sdef["side"]
-        # For PY column we use the PY year for both sides; for the others we
-        # use cy time for "current value" and py time for the prior reference.
-        if metric == "Unit %":
-            value = calc_unit_pct(
-                brucetest, segment,
-                cy_time if side == "cy" else py_time,
-                py_time,
-                scen_cy, "Actual",
-            )
-        elif metric == "SWSG":
-            sss_block = populate_block(brucetest, _kpi_lookup(segment, "SSS"), period_cfg, period_key)
-            unit_block = populate_calculated_kpi(brucetest, segment, "Unit %", period_cfg, period_key)
-            value = calc_swsg(sss_block[col], unit_block[col])
+        scen = sdef["os_scenario"]
+        side = sdef["side"]
+        # Determine the (scenario, time) at which to evaluate the metric
+        # *for this column*, and the prior-period reference time used by
+        # YoY-ratio metrics (AOIG, Unit %).
+        if side == "cy":
+            eval_time, prior_time = cy_time, py_time
+        else:
+            eval_time, prior_time = py_time, ppy_time
+
+        if metric == "SSS":
+            value = calc_sss_at(brucetest, segment, scen, eval_time)
+        elif metric == "SST":
+            value = calc_sst_at(brucetest, segment, scen, eval_time)
+        elif metric == "Unit %":
+            value = calc_unit_pct_at(brucetest, segment, scen, eval_time, prior_time)
         elif metric == "AOIG":
-            value = calc_aoig(
-                brucetest, segment,
-                cy_time if side == "cy" else py_time,
-                py_time,
-                scen_cy, "Actual",
-            )
+            value = calc_aoig_at(brucetest, segment, scen, eval_time, prior_time)
+        elif metric == "SWSG":
+            sss = calc_sss_at(brucetest, segment, scen, eval_time)
+            unt = calc_unit_pct_at(brucetest, segment, scen, eval_time, prior_time)
+            value = calc_swsg(sss, unt)
         else:
             value = 0.0
+
         block[col] = value
 
-    block["vsLE"]     = block["actual"] - block["le"]
-    block["vsBudget"] = block["actual"] - block["budget"]
-    block["vsPY"]     = block["actual"] - block["py"]
-    return block
+    return recompute_variances(block)
 
 
-# Cache: built lazily after mapping is loaded.
-_KPI_LOOKUP_CACHE: dict[tuple[str, str], dict[str, str]] = {}
-_MAPPING_BY_KEY: dict[tuple[str, str, str], dict[str, str]] = {}
+# ---------- baseline (snapshot from the original embedded dashboard) ---
+# Used as a fallback for the flowthrough drivers, where the workbook math
+# (per-driver "flowthrough" decimal contribution) is not yet replicated
+# in the transformer.  Once the formula is encoded the baseline can be
+# retired.
+
+BASELINE_PATH = CONFIG_DIR / "dashboard_baseline.json"
 
 
-def _kpi_lookup(segment: str, metric: str) -> dict[str, str]:
-    """Return a synthetic mapping row for a KPI metric, used by SWSG calc."""
-    key = (segment, metric)
-    if key in _KPI_LOOKUP_CACHE:
-        return _KPI_LOOKUP_CACHE[key]
-    row = _MAPPING_BY_KEY.get((segment, "kpi", metric)) or {
-        "entity": "RestaurantBrandsIntlMNGT",
-        "account": "ReportedSystemCompSalesCY",
-        "ud1": "Top", "ud2": "Top",
-        "ud3": SEGMENT_TO_UD3.get(segment, "Top"),
-        "ud4": "FPA_Reporting", "ud5": "Top", "ud6": "Top", "ud7": "Top", "ud8": "Top",
-    }
-    _KPI_LOOKUP_CACHE[key] = row
-    return row
+def load_baseline() -> dict | None:
+    if not BASELINE_PATH.exists():
+        return None
+    with BASELINE_PATH.open("r", encoding="utf-8-sig") as f:
+        return json.load(f)
 
 
-def build_dashboard(brucetest: dict, mapping: list[dict[str, str]], period_cfg: dict[str, Any]) -> dict:
-    # Index the mapping by (segment, section, name) for fast lookup.
-    for m in mapping:
-        _MAPPING_BY_KEY[(m["segment"], m["section"], m["dashboard_name"])] = m
+def baseline_segment(baseline: dict | None, seg_id: str) -> dict | None:
+    if not baseline:
+        return None
+    for s in baseline.get("segments", []):
+        if s.get("id") == seg_id:
+            return s
+    return None
 
-    # Group by segment.
+
+def baseline_flow_driver(seg_baseline: dict | None, line: str) -> dict | None:
+    if not seg_baseline:
+        return None
+    for d in (seg_baseline.get("flowthrough") or {}).get("drivers", []):
+        if d.get("line") == line:
+            return d
+    return None
+
+
+def baseline_pnl_periodLabels(seg_baseline: dict | None) -> dict:
+    return ((seg_baseline or {}).get("pnl") or {}).get("periodLabels") or {}
+
+
+def baseline_kpi_details(seg_baseline: dict | None) -> list:
+    return (seg_baseline or {}).get("kpiDetails") or []
+
+
+def empty_flow_block() -> dict[str, Any]:
+    return {"flowthrough": None, "yoy": None, "yoyText": None}
+
+
+def build_dashboard(brucetest: dict, mapping: list[dict[str, str]],
+                    period_cfg: dict[str, Any], baseline: dict | None) -> dict:
     segments_out = []
     for seg_id, seg_name, short, currency in SEGMENT_META:
+        seg_baseline = baseline_segment(baseline, seg_id)
         seg_obj = {
             "id": seg_id,
             "name": seg_name,
             "shortName": short,
             "currency": currency,
             "kpi": [],
-            "kpiDetails": [],
+            "kpiDetails": baseline_kpi_details(seg_baseline),
             "flowthrough": {"drivers": []},
-            "pnl": {"lines": []},
+            "pnl": {"lines": [], "periodLabels": baseline_pnl_periodLabels(seg_baseline)},
         }
 
-        # KPI + KPIDetails: same metric set, both sections.
+        # ---------------- KPI ----------------
         kpi_rows = [m for m in mapping if m["segment"] == seg_id and m["section"] == "kpi"]
         for m in kpi_rows:
-            metric = m["dashboard_name"]
-            entry = {"metric": metric}
-            if m["match_status"] == "CALCULATED":
-                for pk in ("month", "quarter", "ytd"):
+            metric  = m["dashboard_name"]
+            mtype   = kpi_type(metric)
+            entry   = {"metric": metric}
+            for pk in ("month", "quarter", "ytd"):
+                if mtype == "percentage":
+                    # All percentage KPIs are computed (SSS/SST included).
                     entry[pk] = populate_calculated_kpi(brucetest, seg_id, metric, period_cfg, pk)
-            else:
-                for pk in ("month", "quarter", "ytd"):
-                    entry[pk] = populate_block(brucetest, m, period_cfg, pk)
+                else:
+                    block = populate_block(brucetest, m, period_cfg, pk)
+                    if mtype == "currency":
+                        scale_block_to_millions(block)
+                    else:
+                        recompute_variances(block)
+                    entry[pk] = block
             seg_obj["kpi"].append(entry)
 
-        # kpiDetails currently mirrors kpi block-for-block.  In the embedded
-        # dashboard they were empty; we populate them so the section is no
-        # longer blank.  Refine later if you want entity-level breakdowns.
-        for kpi_entry in seg_obj["kpi"]:
-            seg_obj["kpiDetails"].append(json.loads(json.dumps(kpi_entry)))
+        # kpiDetails: keep the original snapshot shape so the detail panes
+        # continue to render exactly as they did in the embedded dashboard.
+        # If/when we have line-level brucetest coverage, replace this.
 
-        # Flowthrough drivers.
-        ft_rows = [m for m in mapping if m["segment"] == seg_id and m["section"] == "flowthrough"]
-        for m in ft_rows:
-            entry = {"line": m["dashboard_name"]}
-            for pk in ("month", "quarter", "ytd"):
-                entry[pk] = populate_block(brucetest, m, period_cfg, pk)
-            seg_obj["flowthrough"]["drivers"].append(entry)
+        # ---------------- Flowthrough drivers ----------------
+        # Use the baseline values verbatim.  Driver-level "flowthrough %"
+        # is computed by Excel formulas in the workbook that we have not
+        # yet replicated; emitting raw cube dollars here would render as
+        # nonsense.  Listing the baseline at least lets the driver ladder
+        # render correctly until the formula is encoded.
+        if seg_baseline:
+            for d in (seg_baseline.get("flowthrough") or {}).get("drivers", []):
+                seg_obj["flowthrough"]["drivers"].append(json.loads(json.dumps(d)))
+        else:
+            ft_rows = [m for m in mapping if m["segment"] == seg_id and m["section"] == "flowthrough"]
+            for m in ft_rows:
+                entry = {"line": m["dashboard_name"]}
+                for pk in ("month", "quarter", "ytd"):
+                    entry[pk] = empty_flow_block()
+                seg_obj["flowthrough"]["drivers"].append(entry)
 
-        # PnL lines.
+        # ---------------- PnL lines ----------------
         pnl_rows = [m for m in mapping if m["segment"] == seg_id and m["section"] == "pnl"]
         for m in pnl_rows:
-            entry = {"line": m["dashboard_name"]}
+            line  = m["dashboard_name"]
+            ltype = pnl_type(line)
+            entry = {"line": line}
             for pk in ("month", "quarter", "ytd"):
-                entry[pk] = populate_block(brucetest, m, period_cfg, pk)
+                block = populate_block(brucetest, m, period_cfg, pk)
+                if ltype == "currency":
+                    scale_block_to_millions(block)
+                else:
+                    recompute_variances(block)
+                entry[pk] = block
             seg_obj["pnl"]["lines"].append(entry)
 
         segments_out.append(seg_obj)
@@ -421,6 +528,8 @@ def build_dashboard(brucetest: dict, mapping: list[dict[str, str]], period_cfg: 
             "periods": ["month", "quarter", "ytd"],
             "notes": [
                 "Generated from brucetest by transform.py.",
+                "KPI/PnL values computed live from the cube (decimals for %, $M for currency).",
+                "Flowthrough drivers and KPI detail tables are sourced from the workbook baseline (config/dashboard_baseline.json) until their formulas are replicated.",
                 f"Period config: month {period_cfg['periods']['month']}, "
                 f"quarter {period_cfg['periods']['quarter']}, "
                 f"ytd {period_cfg['periods']['ytd']}.",
@@ -448,7 +557,10 @@ def main() -> None:
     period_cfg = load_period_config()
     print(f"  period label   : {period_cfg.get('label')}")
 
-    payload = build_dashboard(brucetest, mapping, period_cfg)
+    baseline = load_baseline()
+    print(f"  baseline       : {'loaded' if baseline else 'none (flowthrough will be empty)'}")
+
+    payload = build_dashboard(brucetest, mapping, period_cfg, baseline)
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with OUTPUT_PATH.open("w", encoding="utf-8") as f:
