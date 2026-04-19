@@ -28,6 +28,7 @@ jobs:
           OS_APP_NAME: OneStream_Prod_0128
           OS_ADAPTER: SQLAdapter
         run: |
+          set -euo pipefail
           mkdir -p data
 
           # Pull every brucetest row in one shot.  ~388K rows is fine for
@@ -65,16 +66,36 @@ jobs:
 
       - name: Transform brucetest -> dashboard.json
         run: |
+          set -euo pipefail
+          # pipefail ensures python's exit code propagates through `tee`.
           python scripts/transform.py 2>&1 | tee transform.log
+          echo "--- data/ contents after transform ---"
+          ls -la data/
+          test -s data/dashboard.json || { echo "::error::data/dashboard.json missing or empty"; exit 1; }
+          test -s data/meta.json      || { echo "::error::data/meta.json missing or empty"; exit 1; }
+
+      - name: Upload diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: transform-debug
+          path: |
+            transform.log
+            data/brucetest_export.json
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Commit and push data
         run: |
+          set -euo pipefail
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # Only stage what the dashboard consumes.  brucetest_export.json
           # is .gitignored (large + raw cube data).
           git add data/dashboard.json data/meta.json
-          git diff --staged --quiet || (
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
             git commit -m "Refresh dashboard.json $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             git push
-          )
+          fi
