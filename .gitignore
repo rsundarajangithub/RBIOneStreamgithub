@@ -1,0 +1,12 @@
+# CSV / mapping backups left behind by helper scripts (normalize_mapping.py,
+# rewrite_mapping_ud3.py).
+*.bak
+*.bak2
+*.csv.bak
+
+# Local Python caches.
+__pycache__/
+*.pyc
+
+# Logs from local transformer dry runs.
+transform.log

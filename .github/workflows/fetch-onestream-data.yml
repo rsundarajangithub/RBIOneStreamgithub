@@ -61,8 +61,17 @@ jobs:
             exit 1
           fi
 
-          ROWS=$(jq '[.Tables[0].Rows | length] | add' data/brucetest_export.json)
-          echo "OK: brucetest_export.json has ${ROWS} rows"
+          # OneStream returns {"ResultsTable":[ {row}, ... ]}.  Older
+          # synthetic payloads use {"Tables":[{"Rows":[...]}]}; jq tries
+          # both and reports whichever matches.
+          ROWS=$(jq '(.ResultsTable // .Tables[0].Rows // []) | length' data/brucetest_export.json)
+          BYTES=$(stat -c%s data/brucetest_export.json)
+          echo "OK: brucetest_export.json has ${ROWS} rows (${BYTES} bytes)"
+          if [ "$ROWS" -eq 0 ]; then
+            echo "::warning::brucetest_export.json contained 0 rows -- transformer will produce empty dashboard.json"
+            echo "First 500 bytes for diagnosis:"
+            head -c 500 data/brucetest_export.json
+          fi
 
       - name: Transform brucetest -> dashboard.json
         run: |

@@ -1,2 +1,6 @@
 # Raw OneStream extract -- large, regenerated every run, never committed.
 brucetest_export.json
+
+# CSV backups created by Tests/normalize_mapping.py and friends.
+*.bak
+*.bak2

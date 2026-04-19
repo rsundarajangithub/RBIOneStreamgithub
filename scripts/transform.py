@@ -86,8 +86,14 @@ def load_period_config() -> dict[str, Any]:
     return DEFAULT_PERIOD
 
 
-def load_brucetest() -> tuple[list[str], list[list[Any]]]:
-    """Load OneStream SqlAdapter response -> (cols, rows)."""
+def load_brucetest() -> list[dict[str, Any]]:
+    """Load the OneStream SqlAdapter response.
+
+    The DataProvider returns ``{"ResultsTable":[ {col:val, ...}, ... ]}``.
+    Older synthetic test payloads used ``{"Tables":[{"Columns":[...],"Rows":[[...]]}]}``;
+    we still accept that shape for local development.
+    Returns a list of row dicts keyed by lower-case column name.
+    """
     if not BRUCETEST_PATH.exists():
         sys.stderr.write(f"FATAL: {BRUCETEST_PATH} missing.\n")
         sys.exit(1)
@@ -96,33 +102,34 @@ def load_brucetest() -> tuple[list[str], list[list[Any]]]:
     with BRUCETEST_PATH.open("r", encoding="utf-8-sig") as f:
         payload = json.load(f)
 
+    # Shape A: real OneStream response.
+    rows_raw = payload.get("ResultsTable")
+    if isinstance(rows_raw, list):
+        return [{ (k or "").lower(): v for k, v in r.items() } for r in rows_raw]
+
+    # Shape B: dataset-style (legacy synthetic).
     tables = payload.get("Tables") or payload.get("tables") or []
-    if not tables:
-        sys.stderr.write("FATAL: brucetest_export.json has no Tables.\n")
-        sys.exit(1)
+    if tables:
+        t = tables[0]
+        cols = [(c.get("ColumnName") or c.get("Name") or "").lower()
+                for c in t.get("Columns", [])]
+        return [dict(zip(cols, r)) for r in t.get("Rows", [])]
 
-    t = tables[0]
-    cols = [c.get("ColumnName") or c.get("Name") for c in t.get("Columns", [])]
-    rows = t.get("Rows", [])
-    return cols, rows
+    sys.stderr.write(
+        "FATAL: brucetest_export.json has no ResultsTable or Tables. "
+        f"Top-level keys: {list(payload.keys())[:10]}\n"
+    )
+    sys.exit(1)
 
 
-def index_brucetest(cols: list[str], rows: list[list[Any]]) -> dict:
-    """Build a lookup keyed by the same fields the mapping uses."""
-    col_idx = {c.lower(): i for i, c in enumerate(cols) if c}
-
-    def get(row: list[Any], name: str) -> str:
-        i = col_idx.get(name.lower())
-        if i is None:
-            return ""
-        v = row[i]
+def index_brucetest(rows: list[dict[str, Any]]) -> dict:
+    """Build a lookup keyed on the same fields the mapping uses."""
+    def s(row: dict[str, Any], name: str) -> str:
+        v = row.get(name)
         return "" if v is None else str(v)
 
-    def numeric(row: list[Any], name: str) -> float:
-        i = col_idx.get(name.lower())
-        if i is None:
-            return 0.0
-        v = row[i]
+    def numeric(row: dict[str, Any], name: str) -> float:
+        v = row.get(name)
         if v is None or v == "":
             return 0.0
         try:
@@ -130,24 +137,32 @@ def index_brucetest(cols: list[str], rows: list[list[Any]]) -> dict:
         except (TypeError, ValueError):
             return 0.0
 
-    # Index: (entity, scenario, time, account, ud1, ud2, ud3, ud4, ud5, ud6, ud7, ud8) -> amount
+    # brucetest has duplicate cube keys because XFC_INTERSECTION_INPUT
+    # frequently has many input rows that map to the same OneStream cell
+    # (different dashboard labels pointing at the same intersection).
+    # When that happens we keep whichever copy is *farther from zero*
+    # -- a non-zero value beats a zero value, and a real number beats
+    # whatever the last extraction happened to write.
     idx: dict[tuple, float] = {}
     for row in rows:
         key = (
-            get(row, "entity"),
-            get(row, "scenario"),
-            get(row, "time_member"),
-            get(row, "os_account"),
-            get(row, "ud1"),
-            get(row, "ud2"),
-            get(row, "ud3"),
-            get(row, "ud4"),
-            get(row, "ud5"),
-            get(row, "ud6"),
-            get(row, "ud7"),
-            get(row, "ud8"),
+            s(row, "entity"),
+            s(row, "scenario"),
+            s(row, "time_member"),
+            s(row, "os_account"),
+            s(row, "ud1"),
+            s(row, "ud2"),
+            s(row, "ud3"),
+            s(row, "ud4"),
+            s(row, "ud5"),
+            s(row, "ud6"),
+            s(row, "ud7"),
+            s(row, "ud8"),
         )
-        idx[key] = numeric(row, "amount")
+        amt = numeric(row, "amount")
+        prev = idx.get(key)
+        if prev is None or abs(amt) > abs(prev):
+            idx[key] = amt
 
     return idx
 
@@ -221,9 +236,11 @@ def calc_aoig(brucetest: dict, segment: str, cy_time: str, py_time: str, scenari
     return safe_div(cy - py, py)
 
 
-# UD3 segment-rollup labels -- best-known values from the workbook.
+# UD3 segment-rollup labels -- verified against actual brucetest data.
+# Used by calc_unit_pct / calc_aoig (calculated KPI metrics) and as a
+# fallback when a mapping row's UD3 returns 0.
 SEGMENT_TO_UD3 = {
-    "th-cus":    "TH USC",
+    "th-cus":    "TH C&US",
     "bk-usc":    "BK USC",
     "plk-usc":   "PLK USC",
     "fhs-usc":   "FHS USC",
@@ -248,11 +265,36 @@ def populate_block(brucetest: dict, mrow: dict[str, str], period_cfg: dict[str, 
     pdef = period_cfg["periods"][period_key]
     for col, sdef in period_cfg["scenarios"].items():
         time_member = pdef[sdef["side"]]
-        block[col] = lookup_amount(brucetest, mrow, sdef["os_scenario"], time_member)
+        amt = lookup_amount(brucetest, mrow, sdef["os_scenario"], time_member)
+        # Quarter / YTD cells are often empty in the cube even when the
+        # constituent months are populated.  When that happens we sum the
+        # months that make up the period.  This is a heuristic; flip it
+        # off via the period.json override if the cube ever rolls things
+        # up properly on its own.
+        if amt == 0 and time_member.endswith(("Q1", "Q2", "Q3", "Q4")):
+            amt = sum_months_for_quarter(brucetest, mrow, sdef["os_scenario"], time_member)
+        block[col] = amt
     block["vsLE"]     = block["actual"] - block["le"]
     block["vsBudget"] = block["actual"] - block["budget"]
     block["vsPY"]     = block["actual"] - block["py"]
     return block
+
+
+_QUARTER_MONTHS = {"Q1": (1, 2, 3), "Q2": (4, 5, 6), "Q3": (7, 8, 9), "Q4": (10, 11, 12)}
+
+
+def sum_months_for_quarter(brucetest: dict, mrow: dict[str, str], scenario: str, quarter_member: str) -> float:
+    """Reconstruct a quarter total from monthly cube cells -- e.g.
+    ``2026Q1`` -> sum of ``2026M1 + 2026M2 + 2026M3``."""
+    year = quarter_member[:4]
+    qkey = quarter_member[-2:]
+    months = _QUARTER_MONTHS.get(qkey)
+    if not months:
+        return 0.0
+    total = 0.0
+    for m in months:
+        total += lookup_amount(brucetest, mrow, scenario, f"{year}M{m}")
+    return total
 
 
 def populate_calculated_kpi(brucetest: dict, segment: str, metric: str, period_cfg: dict[str, Any], period_key: str) -> dict[str, float]:
@@ -393,10 +435,10 @@ def build_dashboard(brucetest: dict, mapping: list[dict[str, str]], period_cfg: 
 def main() -> None:
     print(f"transform.py: ROOT = {ROOT}")
 
-    cols, rows = load_brucetest()
+    rows = load_brucetest()
     print(f"  brucetest rows : {len(rows):,}")
 
-    brucetest = index_brucetest(cols, rows)
+    brucetest = index_brucetest(rows)
     print(f"  brucetest cells indexed: {len(brucetest):,}")
 
     with MAPPING_PATH.open("r", encoding="utf-8-sig", newline="") as f:
